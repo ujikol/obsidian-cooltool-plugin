@@ -3,9 +3,8 @@ import { TableRow } from "../src/dataview"
 import { msteamsSetupTeam } from "../src/msteams"
 import { WaitModal } from "../src/util"
 import { ParsingBuffer } from "../src/parsing-buffer"
-import { Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, normalizePath, getLinkpath, FrontMatterCache} from 'obsidian'
-import { getAPI, DataviewApi } from "obsidian-dataview"
-import { DataArray } from 'obsidian-dataview/lib/api/data-array'
+import { Notice, Editor, MarkdownView, MarkdownFileInfo} from 'obsidian'
+import { getAPI, DataviewApi, Link, DataArray } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
 
@@ -16,9 +15,6 @@ export class CoolTool implements CoolToolInterface {
 	tp: TemplaterPlugin
 	templateArgs: { [key: string]: any }
 	templatesFolder = "Templates"
-    // private activeFile: TFile|null = null
-    // private parsingBuffer: ParsingBuffer | null = null
-    // private buffers: {[path:string]: MarkdownFileInfo}
     private parsingBuffers: {[path:string]: ParsingBuffer}
 
 	constructor(plugin: CoolToolPlugin) {
@@ -26,8 +22,12 @@ export class CoolTool implements CoolToolInterface {
 		this.getDataview()
         this.parsingBuffers = {}
         this.plugin.app.workspace.on('editor-change', (editor: Editor, info: MarkdownView | MarkdownFileInfo) => {
-            if (info.file!.path in this.parsingBuffers)
-                delete this.parsingBuffers[info.file!.path]
+            const path = info.file!.path
+            if (!(path in this.parsingBuffers))
+                return 
+            delete this.parsingBuffers[path]
+            // Needed ???????????????????????????????
+            // this.parsingBuffers[path] = this.getParsingBuffer(path)
         })
         // this.plugin.app.workspace.on("active-leaf-change", () => {
 		// 	console.log("XXX6 Active leaf changed!")
@@ -35,34 +35,7 @@ export class CoolTool implements CoolToolInterface {
 		// })
 	}
 
-	// async getTemplater(trynumber:number=1) {
-	// 	if (!this.plugin.app.plugins.enabledPlugins.has('templater-obsidian'))
-	// 		throw ("Error: Templater plugin not activated.")
-	// 	this.tp = this.plugin.app.plugins.plugins['templater-obsidian']
-	// 	if (trynumber >= 5)
-	// 		throw ("Error: Templater plugin needed for CoolTool.")
-	// 	await new Promise(f => setTimeout(f, 500*2^trynumber))
-	// 	this.getDataview(++trynumber)
-	// }
-
-    // private getBuffer(path: string|undefined): MarkdownFileInfo {
-    //     // WorkspaceLeaf.openFile()
-    //     if (!path)
-    //         path = this.plugin.app.workspace.activeEditor?.file?.path
-    //     let buf = this.buffers[path!]
-    //     if (!buf) {
-    //         b
-    //     }
-    //     return new ParsingBuffer(this.plugin, this.dv)
-    // }
-
-    private getParsingBuffer(path?:string, afterInit?: (buf: ParsingBuffer) => void): ParsingBuffer {
-        // console.log("XXXa", path)
-        if (!path)
-            path = this.plugin.app.workspace.activeEditor!.file!.path
-        // console.log("XXXb", path)
-        path = this.pathFromLink(path)
-        // console.log("XXXc", path)
+    private getParsingBuffer(path:string, afterInit?: (buf: ParsingBuffer) => void): ParsingBuffer {
         let buf = this.parsingBuffers[path]
         if (!buf) {
             buf = new ParsingBuffer(this.plugin, this)
@@ -108,16 +81,6 @@ export class CoolTool implements CoolToolInterface {
 	}
 
 	filterColumns(table: any, filter: string[] | ((key: string) => boolean)) {
-        // if (Array.isArray(filter)) {
-        //     return table.map((row: TableRow) =>
-        //         Object.keys(row)
-        //             .filter(key => filter.contains(key))
-        //             .reduce((obj: any, k: string) => {
-        //                 obj[k] = row[k]
-        //                 return obj
-        //             }, {}))
-        //     }
-        // }
 		return table.map((row: TableRow) =>
 			Object.keys(row)
 				.filter(key => Array.isArray(filter) ?
@@ -142,6 +105,46 @@ export class CoolTool implements CoolToolInterface {
 		if ("array" in table)
 			table = this.asArray(table)
 		return getMarkdownTable({table: {head: table[0], body: table[1]}})
+	}
+
+
+    // Macros ===================================
+    property(key: string, path?: string|Link): any {
+        path = this.pathFromLink(path)
+        const page = this.dv.page(path)
+        const value = page[key]
+        if (!value) {
+            const parent = page.Parent
+            if (parent)
+                return this.property(key, parent)
+        }
+        return value
+    }
+
+	team(heading: string = "Team", path?: string|Link): DataArray<string> {
+        return this.stakeholders([heading], path)
+	}
+
+	stakeholders(heading: string | string[] = ["Stakeholders"], path?: string|Link): DataArray<string> {
+		if (typeof heading === "string")
+			heading = [heading]
+        path = this.pathFromLink(path)
+		const parsingBuffer = this.getParsingBuffer(path)
+		let all: DataArray<string> = []
+        const page = this.dv.page(path)
+        const parent = page.Parent
+        all = parsingBuffer.getStakeholders(heading[0])
+		heading.slice(1).forEach((h: string) => {
+			all = all.concat(parsingBuffer.getStakeholders(h))
+		})
+        if (parent) {
+            const upper = this.stakeholders(heading, parent)
+            if (all.length > 0 && upper.length > 0)
+                return upper.concat(all)
+            if (upper.length > 0)
+                return upper
+        }
+        return all
 	}
 
 
@@ -176,7 +179,6 @@ export class CoolTool implements CoolToolInterface {
         }
 		editor.replaceRange(`\n[[${note?.basename}]]`, endOfbuttonPos)
 		return note
-		// tp.templater.create_new_note_from_template(`<% (await tp.file.create_new(tp.file.find_tfile("Minutes"), "MyMinutes", false, tp.file.folder(true))).basename %>`)
 	}
 
 	// for context of templates only!
@@ -190,39 +192,9 @@ export class CoolTool implements CoolToolInterface {
 	}
 
 
-    // Macros ===================================
-    property(key: string, path?: string): any {
-        const file = path ? this.plugin.app.vault.getFileByPath(this.pathFromLink(path!))! : this.plugin.app.workspace.activeEditor!.file!
-        return this.plugin.app.metadataCache.getFileCache(file)!.frontmatter![key]
-    }
-
-    // parent(path?: string): any {
-    //     return this.property("Parent", path)
-    // }
-
-	team(heading: string = "Team", path?: string): DataArray<string> {
-        return this.stakeholders([heading], path)
-	}
-
-	stakeholders(heading: string | string[] = ["Stakeholders"], path?: string): DataArray<string> {
-		if (typeof heading === "string")
-			heading = [heading]
-        if (path)
-            path = this.pathFromLink(path!)
-        // console.log("XXX3", path)
-		const parsingBuffer = this.getParsingBuffer(path)
-        // console.log("XXX4", parsingBuffer, this.parsingBuffers)
-		let all = parsingBuffer.getStakeholders(heading[0])
-		heading.slice(1).forEach((h: string) => {
-			all = all.concat(parsingBuffer.getStakeholders(h))
-		})
-		return all
-	}
-
-
     // MsTeams ==================================
     async updateTeamBelow(teamName?: string) {
-        this.getParsingBuffer(undefined, async (buf) => {
+        this.getParsingBuffer(this.pathFromLink(undefined), async (buf) => {
             const parsed = await buf.parseMsTeam(teamName)
             if (parsed) {
                 const [team, idInsertLine] = parsed
@@ -244,37 +216,17 @@ export class CoolTool implements CoolToolInterface {
         })
     }
 
-
-    // async linksInFileSection(file:TFile, section?:string): Promise<string[]> {
-    //     let text = await this.plugin.app.vault.cachedRead(file)
-    //     if (section) {
-    //         let match = text.match(new RegExp("\n(#+)\s+" + section + "\s|\n"))
-    //         if (!match)
-    //             return []
-    //         const from = match.index
-    //         match = text.match(new RegExp("\n" + "#".repeat(match[1].length) + "\s+"))
-    //         text = text.slice(from, match?.index)
-    //     }
-    //     let match = Array.from(text.matchAll(/\[\[([^\n]+?)(\|([^\n]*?))?\]\]/g))
-    //     return match?.map(m => m[1]) || []
-    // }
-
-    pathFromLink(link: string): string {
-        // console.log("XXX5", link)
-        const match = link.match(/^\s*\[\[(.+)(\|.*)?\]\]\s*$/)
-        if (match) {
-            link = match[1]
-            // console.log("XXX6", link)
-            // console.log("XXXa", this.plugin.app.vault.getFiles())
-            link = this.plugin.app.vault.getFiles().find(file => file.basename === link)!.path
-            // console.log("XXX8", link)
-        } else {
-            link = normalizePath(link)
-            // console.log("XXX7", link)
-        }
-        return link
+    pathFromLink(path?: string|Link): string {
+        if (!path)
+            return this.plugin.app.workspace.activeEditor!.file!.path
+        if (this.dv.value.isLink(path))
+            path = path.path
+        const match = path.match(/^\s*\[\[(.+)(\|.*)?\]\]\s*$/)
+        if (match)
+            path = match[1]
+        return this.dv.page(path).file.path
     }
-    
+
     logTrue(...args:any){
         console.log("CT:", ...args)
         return true

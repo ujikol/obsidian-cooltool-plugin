@@ -1,18 +1,14 @@
 import { CoolToolPlugin, MsTeamsTeam, MsTeamsOptions, MsTeamsChannel } from "../src/types"
 import { TableRow } from "../src/dataview"
 import { replaceAsync } from "../src/util"
-import { App, Editor, MarkdownFileInfo, Notice, TFile, CachedMetadata, HeadingCache, SectionCache } from 'obsidian'
-import { DataviewApi } from "obsidian-dataview"
-import { DataArray } from 'obsidian-dataview/lib/api/data-array'
+import { Notice, HeadingCache, SectionCache } from 'obsidian'
+import { DataArray } from "obsidian-dataview"
 import { delay } from 'es-toolkit'
 import { CoolTool } from "./cooltool"
 
 
 export class ParsingBuffer {
 	plugin: CoolToolPlugin
-	// buffer: MarkdownFileInfo
-	// editor: Editor
-	// cache: CachedMetadata
 	headings: HeadingCache[]
 	sections: SectionCache[]
 	text: string
@@ -25,38 +21,28 @@ export class ParsingBuffer {
 
     async init(path: string) {
 		const app = this.plugin.app
-		// this.buffer = buffer || this.app.workspace.activeEditor!
-		// this.editor = this.buffer.editor!
         const file = app.vault.getFileByPath(path)!
-        // console.log("XXX9", path, file)
         const cache = app.metadataCache.getFileCache(file)!
         // const cache = app.metadataCache.metadataCache[app.metadataCache.fileCache[path].hash]
 		this.text = path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
 		this.sections = cache.sections!
 		this.headings = cache.headings!
 		// @ts-ignore
-		// this.htmlElements = Array.from(this.buffer.editor.cm.contentDOM.children)
-		// this.htmlText = WebpageHTMLExport.api.renderFileToString(currentFile, {})
 	}
 
 	getStakeholders(heading: string): DataArray<string> {
         const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)
-            throw "No Teams heading."
+            return []
         let i = -1
         while (++i < this.sections.length) {
             if (this.sections[i].type === "heading" && this.sections[i].position.start.offset === table_heading.position.start.offset) {
                 if (++i < this.sections.length && this.sections[i].type === "table") {
-                    const table = this.ct.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
-                    // table.forEach((r:TableRow) => r.hasRole = (roles) =>
-                    //     r["Role"].split(",").map((r: string)=>r.trim())
-                    //         .filter((r: string) => roles.includes(r))
-                    //         .length > 0)
-                    return table
+                    return this.ct.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
                 }
             }
         }
-        throw "No table in Teams heading."
+        return []
     }
 
     parseTable(markdown: string): TableRow[] {
@@ -113,8 +99,6 @@ export class ParsingBuffer {
 				const channelName = await this.expandedText(this.headings[index].heading)
 				let [description, options] = this.parseOptionsSection(await this.getSectionText(index, teamLevel + 1))
 				let membershipType = "Standard"
-				//  = options["MembershipType"] as string
-				// delete options["MembershipType"]
 				let owners: string[] = []
 				let members: string[] = []
 				if (index + 1 < this.headings.length && this.headings[index + 1].level === teamLevel + 2) {
@@ -133,7 +117,6 @@ export class ParsingBuffer {
 				members: members,
 				channels: channels
 			}
-			// console.log("XXX1", team)
 			return [team, idInsertLine]
 		} catch (err: unknown) {
 			new Notice(err as string)
@@ -171,7 +154,6 @@ export class ParsingBuffer {
 	async expandedText(text: string): Promise<string> {
 		const blockRegex = /```dataviewjs\n([\s\S]*?)```/g;
 		const inlineRegex = /`\$=([\s\S]*?)`/g;
-        // console.log("XXX7")
 		text = await replaceAsync(text, blockRegex, async (match, code): Promise<string> => {
 			const container: HTMLElement = new Document().createElement("div")
 			container.onNodeInserted = (listener: () => any,  once?: boolean | undefined) => () => {}

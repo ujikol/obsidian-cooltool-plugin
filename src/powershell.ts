@@ -26,8 +26,6 @@ async function executePowerShellCommand(cmd: string): Promise<[boolean, string]>
     // 	output = require('child_process').execSync(`powershell -file ${tmpFile}`, { shell: true, detached: true }).toString()
     // 	require('fs').unlinkSync(tmpFile)
     // } catch (err){ 
-    // 	console.log("XXX2", err.stdout.toString())
-    // 	console.log("XXX3", err.stderr.toString())
     // 	// throw err
     // }
     return [success, output]
