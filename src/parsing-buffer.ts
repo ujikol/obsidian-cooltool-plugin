@@ -1,48 +1,53 @@
 import { CoolToolPlugin, MsTeamsTeam, MsTeamsOptions, MsTeamsChannel } from "../src/types"
 import { TableRow } from "../src/dataview"
 import { replaceAsync } from "../src/util"
-import { App, Editor, MarkdownFileInfo, Notice, CachedMetadata, HeadingCache, SectionCache } from 'obsidian'
+import { App, Editor, MarkdownFileInfo, Notice, TFile, CachedMetadata, HeadingCache, SectionCache } from 'obsidian'
 import { DataviewApi } from "obsidian-dataview"
 import { DataArray } from 'obsidian-dataview/lib/api/data-array'
 import { delay } from 'es-toolkit'
+import { CoolTool } from "./cooltool"
 
 
 export class ParsingBuffer {
 	plugin: CoolToolPlugin
-	app: App
-	buffer: MarkdownFileInfo
+	// buffer: MarkdownFileInfo
 	// editor: Editor
-	cache: CachedMetadata
+	// cache: CachedMetadata
 	headings: HeadingCache[]
 	sections: SectionCache[]
 	text: string
-	dv: DataviewApi
+	ct: CoolTool
 
-	constructor(plugin: CoolToolPlugin, dv:DataviewApi, buffer?:MarkdownFileInfo) {
+	constructor(plugin: CoolToolPlugin, ct: CoolTool) {
 		this.plugin = plugin
-		this.app = plugin.app
-		this.buffer = buffer || this.app.workspace.activeEditor!
+		this.ct = ct
+    }
+
+    async init(path: string) {
+		const app = this.plugin.app
+		// this.buffer = buffer || this.app.workspace.activeEditor!
 		// this.editor = this.buffer.editor!
-		this.cache = this.app.metadataCache.getFileCache(this.buffer.file!)!
-		this.text = this.buffer.editor!.getValue()
-		this.sections = this.cache.sections!
-		this.headings = this.cache.headings!
+        const file = app.vault.getFileByPath(path)!
+        // console.log("XXX9", path, file)
+        const cache = app.metadataCache.getFileCache(file)!
+        // const cache = app.metadataCache.metadataCache[app.metadataCache.fileCache[path].hash]
+		this.text = path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
+		this.sections = cache.sections!
+		this.headings = cache.headings!
 		// @ts-ignore
-		this.htmlElements = Array.from(this.buffer.editor.cm.contentDOM.children)
+		// this.htmlElements = Array.from(this.buffer.editor.cm.contentDOM.children)
 		// this.htmlText = WebpageHTMLExport.api.renderFileToString(currentFile, {})
-		this.dv = dv
 	}
 
-	getStakeholders(heading: string = "Team"): DataArray<string> {
-        const headings = this.cache.headings!
-        const table_heading = headings.find((h: HeadingCache) => h.heading === heading)
+	getStakeholders(heading: string): DataArray<string> {
+        const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)
             throw "No Teams heading."
         let i = -1
         while (++i < this.sections.length) {
             if (this.sections[i].type === "heading" && this.sections[i].position.start.offset === table_heading.position.start.offset) {
                 if (++i < this.sections.length && this.sections[i].type === "table") {
-                    const table = this.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
+                    const table = this.ct.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
                     // table.forEach((r:TableRow) => r.hasRole = (roles) =>
                     //     r["Role"].split(",").map((r: string)=>r.trim())
                     //         .filter((r: string) => roles.includes(r))
@@ -55,25 +60,27 @@ export class ParsingBuffer {
     }
 
     parseTable(markdown: string): TableRow[] {
-        let rows = markdown.trim().split('\n');
-        rows = rows.slice(0, rows.findIndex(r => !r.startsWith("| ")));
-        const headers = rows[0].split('|').map(header => header.trim()).filter(Boolean);
-        const dataRows = rows.slice(2);
+        let rows = markdown.trim().split('\n')
+        rows = rows.slice(0, rows.findIndex(r => !r.startsWith("| ")))
+        const headers = rows[0].split('|').map(header => header.trim()).filter(Boolean)
+        const dataRows = rows.slice(2)
         const parsedRows = dataRows.map(row => {
             const cells = (" " + row + " ").split(' | ')
                 .map(cell => cell.trim())
-                .filter(Boolean);
-            const rowObject: TableRow = new TableRow();
+            if (cells.length === 0)
+                return null
+            const rowObject: TableRow = new TableRow()
             headers.forEach((header, index) => {
-                rowObject[header] = cells[index];
-            });
-            return rowObject;
-        });
-        return parsedRows;
+                rowObject[header] = cells[index + 1]
+            })
+            return rowObject
+        })
+        return parsedRows.filter(r => r !== null)
     }
 
 	async parseMsTeam(teamName?: string): Promise<[MsTeamsTeam, number|null] | undefined> {
 		try {
+            const editor = this.plugin.app.workspace.activeEditor!.editor!
 			let index: number
 			if (teamName) {
 				index = this.headings.findIndex(async (h: HeadingCache) => await this.expandedText(h.heading) === teamName)
@@ -81,7 +88,7 @@ export class ParsingBuffer {
 					throw `Error: Cannot find team heading ${teamName}.`
 			} else {
 				// Hope on "fix" of meta-bind plugin to provide notePosition for runInlineJsAction
-				let cursor = this.buffer.editor!.getCursor()
+				let cursor = editor.getCursor()
 				const buttonLines = this.sections.filter((s: SectionCache) =>
 						s.type === "code" &&
 						this.text.slice(s.position.start.offset, s.position.end.offset)
@@ -139,8 +146,9 @@ export class ParsingBuffer {
 		const heading = this.headings[index]
 		if (heading.level !== level || (prefix && !heading.heading.startsWith(prefix)))
 			throw (`Error: Expected heading ${prefix} at level ${level} but got heading ${heading.heading} at level ${heading.level}`)
-		const text = this.text.slice(this.buffer.editor!.posToOffset({line: heading.position.start.line + 1, ch:0}),
-				index < this.headings.length ? this.buffer.editor!.posToOffset({line: this.headings[index + 1].position.start.line, ch:0}) : this.text.length)
+        const editor = this.plugin.app.workspace.activeEditor!.editor!
+		const text = this.text.slice(editor.posToOffset({line: heading.position.start.line + 1, ch:0}),
+				index < this.headings.length ? editor.posToOffset({line: this.headings[index + 1].position.start.line, ch:0}) : this.text.length)
 		return await this.expandedText(text)
 	}
 
@@ -163,10 +171,11 @@ export class ParsingBuffer {
 	async expandedText(text: string): Promise<string> {
 		const blockRegex = /```dataviewjs\n([\s\S]*?)```/g;
 		const inlineRegex = /`\$=([\s\S]*?)`/g;
+        // console.log("XXX7")
 		text = await replaceAsync(text, blockRegex, async (match, code): Promise<string> => {
 			const container: HTMLElement = new Document().createElement("div")
 			container.onNodeInserted = (listener: () => any,  once?: boolean | undefined) => () => {}
-			await this.dv.executeJs(code, container, this.plugin, this.app.workspace.activeEditor!.file?.path)
+			await this.ct.dv.executeJs(code, container, this.plugin, this.plugin.app.workspace.activeEditor!.file?.path)
 			await delay(1001)
 			const result = container.innerHTML
 			return result
@@ -176,8 +185,8 @@ export class ParsingBuffer {
 			const container: HTMLElement = document.createElement("span")
 			container.onNodeInserted = (listener: () => any,  once?: boolean | undefined) => () => {}
 			let result = function () {
-				return eval("const dataview = this.dv;const dv=this.dv;" + code)
-			}.call({index:this.dv.index, component:this.plugin, container:container, app:this.app, settings:this.dv.settings, currentFilePath:this.app.workspace.activeEditor!.file!.path})
+				return eval("const dataview = this.ct.dv;const dv=this.ct.dv;" + code)
+			}.call({index:this.ct.dv.index, component:this.plugin, container:container, app:this.plugin.app, settings:this.ct.dv.settings, currentFilePath:this.plugin.app.workspace.activeEditor!.file!.path})
 			return result
 		})
 		return text

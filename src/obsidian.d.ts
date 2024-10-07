@@ -19,11 +19,14 @@ declare module 'obsidian' {
             }
         }
         internalPlugins: {
-            // config: any
+            enablePlugin(name: string): Promise<void>
+            disablePlugin(name: string): Promise<void>
             plugins: {
                 graph: {
                     enabled: boolean
-                    loadSettings: () => void
+                    loadData(): Promise<any>
+                    load(): void
+                    unload(): void
                 }
             }
         }
@@ -43,6 +46,8 @@ declare module 'obsidian' {
         }
     }
     interface MetadataCache {
+        fileCache: {[path: string]: {hash: string}}
+        metadataCache: {[hash: string]: CachedMetadata}
         on(
             name: 'dataview:api-ready',
             callback: (api: DataviewApi) => unknown,

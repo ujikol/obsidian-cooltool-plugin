@@ -83,7 +83,7 @@ export const configureDefaultSettingsCommand = (plugin: CoolToolPlugin): Command
       }
     },
     {
-      "query": "path:\\"Cyber AT/Programs\\"  ",
+      "query": "path:\\"CyberA AT/Programs\\"  ",
       "color": {
         "a": 1,
         "rgb": 16734176
@@ -91,6 +91,12 @@ export const configureDefaultSettingsCommand = (plugin: CoolToolPlugin): Command
     }
   ]`)
             c.colorGroups = unionWith(c.colorGroups, add, (o:any, n:any) => o.query === n.query)
+            // plugin.app.internalPlugins.disablePlugin("graph").then( () =>
+            //   plugin.app.internalPlugins.enablePlugin("graph"))
+            // const p = plugin.app.internalPlugins.plugins.graph
+            // p.unload()
+            // p.loadData()
+            // p.load()
         })
 
         // Hotkeys ==============================
@@ -457,7 +463,7 @@ function patchFile(fileName: string, vault: Vault, patchFunction: (any)) {
         }
     } catch (err) {
         console.log(err)
-        if (typeof(err) === "string")
+        if (typeof err === "string")
             new Notice(`ERROR:\n${err}`)
         else
             new Notice(`${err.name}\n${err.message}`)

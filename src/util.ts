@@ -1,4 +1,4 @@
-import { Modal } from 'obsidian'
+import { Modal, getLinkpath, normalizePath, Vault } from 'obsidian'
 
 
 export class WaitModal extends Modal {
@@ -23,6 +23,20 @@ export async function replaceAsync(str:string , regex: RegExp, asyncFn: (substri
     });
     const data = await Promise.all(promises);
     return str.replace(regex, () => data.shift()!);
+}
+
+export function pathFromLink(link: string, vault: Vault): string {
+    // const match = link.match(/^\s*\[\[(.+)(\|.*)?\]\]\s*$/)
+    // if (match)
+    //     return getLinkpath(match[1])
+    console.log("XXX5", link)
+    link = getLinkpath(link)
+    console.log("XXX6", link)
+    link = normalizePath(link)
+    console.log("XXX7", link)
+    link = vault.adapter.getResourcePath(link)
+    console.log("XXX8", link)
+    return link
 }
 
 // function delay(ms: number) {

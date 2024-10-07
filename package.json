@@ -25,6 +25,7 @@
 	"dependencies": {
 		"es-toolkit": "^1.22.0",
 		"fs-extra": "^11.2.0",
+		"markdown-table-ts": "^1.0.3",
 		"moment": "^2.30.1",
 		"tmp": "^0.2.3"
 	}
