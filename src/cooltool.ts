@@ -1,12 +1,15 @@
-import { CoolToolPlugin, CoolToolInterface } from "../src/types"
+import { CoolToolPlugin, CoolToolInterface, TemplaterPlugin } from "../src/types"
 import { TableRow } from "../src/dataview"
 import { msteamsSetupTeam } from "../src/msteams"
-import { WaitModal } from "../src/util"
+import { WaitModal, convertHtmlToRtf } from "../src/util"
 import { ParsingBuffer } from "../src/parsing-buffer"
+import { renderBranch} from "../src/render"
+import { executePowerShellCommand, pssavpar} from "../src/powershell"
 import { Notice, Editor, MarkdownView, MarkdownFileInfo} from 'obsidian'
 import { getAPI, DataviewApi, Link, DataArray } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
+import { parseDate } from "chrono-node"
 
 
 export class CoolTool implements CoolToolInterface {
@@ -48,6 +51,23 @@ export class CoolTool implements CoolToolInterface {
         return buf
     }
 
+
+    // Tasks ====================================
+
+    isDelegatedTask(task:any): boolean {
+        let actor = null
+        let match = task.description.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
+        if (match)
+            actor = match[2]
+        match = task.description.match(/^@(\w+)/)
+        if (match)
+            actor = match[1]
+        if (!actor)
+            return false
+        return (actor !== process.env.MATCH_CODE)
+    }
+
+
     // DataView =================================
 	async getDataview(trynumber:number=1) {
 		const dv = getAPI(this.plugin.app)
@@ -57,7 +77,7 @@ export class CoolTool implements CoolToolInterface {
 			this.dv = dv
 			return
 		}
-		if (trynumber >= 5)
+		if (trynumber >= 10)
 			throw ("Error: Dataview plugin needed for CoolTool.")
 		await new Promise(f => setTimeout(f, 500*2^trynumber))
 		this.getDataview(++trynumber)
@@ -147,7 +167,24 @@ export class CoolTool implements CoolToolInterface {
         return all
 	}
 
+    callout(text: string, type: string="", title: string = ""): string {
+        const allText = `> [!${type}] ${title}\n` + text
+        const lines = allText.split('\n')
+        return lines.join('\n> ') + '\n'
+    }
 
+    tasks(query: string, title:string): string {
+        return this.callout('```tasks\n' + query + '\n```', "todo", title)
+    }
+
+    actionPlan(title:string="Agreed Tasks"): string {
+        const query = `
+            path includes {{query.file.path}}
+            sort by priority
+        `
+        return this.tasks(query, title)
+    }
+    
 	// Templates ===============================
 	async createNote(template: string, args:{[key: string]: any}, noteName:string) {
 		const app = this.plugin.app
@@ -181,6 +218,25 @@ export class CoolTool implements CoolToolInterface {
 		return note
 	}
 
+    tracker(who: string[], what: string, priority: number=0, deadline?: string, scheduled?: string): string {
+        let prio = ["", " ⏬", " 🔽", " 🔼", " ⏫", " 🔺"][priority]
+        const parseDateOption = { forwardDate: true }
+        let tasks = ""
+        who.forEach(w => {
+            let task = "- [ ] " + w + ": " + what + prio
+            if (deadline)
+                task += " 📅 " + window.moment(parseDate(deadline, undefined, parseDateOption)).format("YYYY-MM-DD")
+            if (scheduled)
+                task += " ⏳ " + window.moment(parseDate(scheduled, undefined, parseDateOption)).format("YYYY-MM-DD")
+            tasks += task + "\n"
+        })
+        return tasks
+    }
+
+    insert(text:string, line:number) {
+        this.plugin.app.workspace.activeEditor!.editor!.replaceRange(text, {line: line, ch:0})
+    }
+
 	// for context of templates only!
 	products(products:string[]): boolean {
 		return intersection(products, this.property("Products", this.templateArgs["path"])).length > 0
@@ -189,6 +245,11 @@ export class CoolTool implements CoolToolInterface {
 	// for context of templates only!
 	stages(stages:string[]): boolean {
 		return stages.contains(this.templateArgs["stage"])
+	}
+
+	// for context of templates only!
+	withInstructions(): boolean {
+		return this.templateArgs["instructions"]
 	}
 
 
@@ -231,4 +292,60 @@ export class CoolTool implements CoolToolInterface {
         console.log("CT:", ...args)
         return true
     }
+
+
+    // HTML renderer ============================
+	// async getWebpageHtmlExport(trynumber:number=1) {
+	// 	const whe = this.plugin.app.plugins.plugins["webpage-html-export"]
+	// 	if (whe) {
+	// 		if (!this.plugin.app.plugins.enabledPlugins.has('webpage-html-export'))
+	// 			throw ("Error: Webpage-Html-Export plugin not activated.")
+	// 		this.whe = whe.api
+	// 		return
+	// 	}
+	// 	if (trynumber >= 10)
+	// 		throw ("Error: Webpage-Html-Export plugin needed for CoolTool.")
+	// 	await new Promise(f => setTimeout(f, 500*2^trynumber))
+	// 	this.getWebpageHtmlExport(++trynumber)
+	// }
+
+
+    // Outlook ==================================
+    async createOutlookItem(context: any, type: string): Promise<{ [key: string]: string }> {
+        let outlookItem: { [key: string]: string } = {"for":"", "to":"", "cc":"", "deadline":"", "scheduled":""}
+        try {
+            const text = (await renderBranch(this.plugin, context.buttonContext.position.lineStart))!
+            const parser = new DOMParser()
+            const html = parser.parseFromString(text, 'text/html')
+            const fields = html.getElementsByTagName("p")[0].innerText
+            fields.split("\n").forEach(line => {
+                const [all, key, value] = line.match(/^(\w+):\s?(.*)$/)!
+                // if (!["for", "from", "to", "cc"].contains(key))
+                //     throw `Illegal field ${key}`
+                outlookItem[key] = value.split(/[;,]+/).map(e => e.trim()).join("; ")
+            })
+            outlookItem["subject"] = html.getElementsByClassName("heading")[0].textContent || ""
+            outlookItem["body"] = html.getElementsByClassName("heading-children")[0].innerHTML
+        } catch (e) {
+            const msg = "ERROR: Cannot create Email.\nIs the branch structure correct?\n" + e
+            console.log(msg)
+            new Notice(msg)
+        }
+        let cmd = "$ol = New-Object -comObject Outlook.Application\n"
+        cmd += `$item = $ol.CreateItem(${type==="mail" ? 0 : type==="appointment" ? 1 : 3})\n`
+        cmd += `$item.Subject = '${outlookItem["subject"]}'\n`
+        if (type==="mail")
+            cmd += `$item.HtmlBody = ${pssavpar(outlookItem["body"])}\n`
+        else
+            cmd += `$item.Body = ${pssavpar(convertHtmlToRtf(outlookItem["body"])!)}\n`
+        cmd += `$item.${type==="task" ? "Delegator" : "SentOnBehalfOfName"} = '${outlookItem["for"]}'\n`
+        cmd += `$item.${type==="mail" ? "to" : type==="appointment" ? "RequiredAttendees" : "Owner"} = '${outlookItem["to"]}'\n`
+        cmd += `$item.${type==="appointment" ? "OptionalAttendees" : "cc"} = '${outlookItem["cc"]}'\n`
+        cmd += `$item.DueDate = '${outlookItem["deadline"]}'\n`
+        cmd += `$item.ReminderTime = '${outlookItem["scheduled"]}'\n`
+        cmd += "$inspector = $item.GetInspector\n$inspector.Display()\nStart-Sleep -Seconds 2\n$inspector.Activate()\n"
+        executePowerShellCommand(cmd)
+        return outlookItem
+    }
+
 }

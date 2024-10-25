@@ -27,13 +27,12 @@ export class ParsingBuffer {
 		this.text = path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
 		this.sections = cache.sections!
 		this.headings = cache.headings!
-		// @ts-ignore
 	}
 
 	getStakeholders(heading: string): DataArray<string> {
         const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)
-            return []
+            return this.ct.dv.array([])
         let i = -1
         while (++i < this.sections.length) {
             if (this.sections[i].type === "heading" && this.sections[i].position.start.offset === table_heading.position.start.offset) {
@@ -163,8 +162,7 @@ export class ParsingBuffer {
 			return result
 		})
 		text = text.replace(inlineRegex, (match, code): string => {
-			const document = new Document()
-			const container: HTMLElement = document.createElement("span")
+			const container: HTMLElement = new Document().createElement("span")
 			container.onNodeInserted = (listener: () => any,  once?: boolean | undefined) => () => {}
 			let result = function () {
 				return eval("const dataview = this.ct.dv;const dv=this.ct.dv;" + code)
@@ -173,4 +171,5 @@ export class ParsingBuffer {
 		})
 		return text
 	}
+
 }
