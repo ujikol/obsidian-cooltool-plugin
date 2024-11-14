@@ -30,6 +30,8 @@ export class ParsingBuffer {
 	}
 
 	getStakeholders(heading: string): DataArray<string> {
+        if (!this.headings)
+            new Notice("ATTENTION:\nNot all placeholders replace correctly.\nYou need to refresh!")
         const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)
             return this.ct.dv.array([])
