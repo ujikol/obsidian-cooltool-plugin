@@ -9,9 +9,12 @@ export async function renderBranch(plugin: CoolToolPlugin, line:number, options?
     const file = app.workspace.getActiveFile()!
     const headings = app.metadataCache.getFileCache(file)!.headings!
     let index = headings.findLastIndex((h: HeadingCache) => h.position!.start.line <= line)
-    const level = headings[index].level
+    let level = -1
+    if (index >= 0)
+        level = headings[index].level
     let endLine = -1
-    while (index++) {
+    while (true) {
+        index++
         if (index >= headings.length) {
             endLine = editor.lineCount()
             break
@@ -25,6 +28,8 @@ export async function renderBranch(plugin: CoolToolPlugin, line:number, options?
     // const component = new Component()
     // const container: HTMLElement = new Document().createElement("div")
     // await MarkdownPreviewView.render(app, text, container, file.path, component)
-    const whe = (app.plugins.plugins['webpage-html-export'] as WebpageExportPlugin).api
-    return whe.renderMarkdownToString(text, options)
+    const whe = (app.plugins.plugins['webpage-html-export'] as WebpageExportPlugin)
+    if (!whe)
+        throw "webpage-html-export plugin not installed or not activated."
+    return whe.api.renderMarkdownToString(text, options)
 }
