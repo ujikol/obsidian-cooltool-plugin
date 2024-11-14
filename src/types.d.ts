@@ -4,11 +4,10 @@ import { DataviewApi } from "obsidian-dataview"
 interface CoolToolPlugin extends Plugin {}
 
 interface CoolToolInterface {
-//   obsidian?: typeof obsidian;
-//   app?: obsidian.App;
     plugin: Plugin
 	dv: DataviewApi
-	// buffer: MarkdownFileInfo|undefined|null
+	createProject: (projectID:string, importIt: boolean, parent: boolean) => any
+    importPeople: () => any
 }
 
 interface TemplaterPlugin {

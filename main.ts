@@ -1,6 +1,6 @@
 // import { ChildProcess } from 'child_process';
 import { Plugin } from 'obsidian'
-import { CoolTool } from 'src/cooltool'
+import { CoolTool, CreateProjectCommand, ImportPeopleCommand } from 'src/cooltool'
 import { configureDefaultSettingsCommand } from 'src/configure'
 
 // const tmp = require('tmp')
@@ -20,6 +20,8 @@ export default class CoolToolPlugin extends Plugin {
 		// await this.loadSettings();
 		window.ct = new CoolTool(this)
 		this.addCommand(configureDefaultSettingsCommand(this))
+		this.addCommand(CreateProjectCommand(this))
+		this.addCommand(ImportPeopleCommand(this))
 		this.addCommand(
 			{
 				id: 'toggle-dark-mode',

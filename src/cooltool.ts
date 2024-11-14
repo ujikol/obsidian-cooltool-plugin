@@ -5,19 +5,24 @@ import { WaitModal, convertHtmlToRtf } from "../src/util"
 import { ParsingBuffer } from "../src/parsing-buffer"
 import { renderBranch} from "../src/render"
 import { executePowerShellCommand, pssavpar} from "../src/powershell"
-import { Notice, Editor, MarkdownView, MarkdownFileInfo} from 'obsidian'
+import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile} from 'obsidian'
 import { getAPI, DataviewApi, Link, DataArray } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
+import { RetainAPI } from "./retain"
+const path = require('path')
+const os = require('os')
 
+
+const CT_PROJECTS_ROOT = "CT_Projects"
 
 export class CoolTool implements CoolToolInterface {
 	plugin: CoolToolPlugin
 	dv: DataviewApi
 	tp: TemplaterPlugin
 	templateArgs: { [key: string]: any }
-	templatesFolder = "Templates"
+	templatesFolder = "CT_Projects/Templates"
     private parsingBuffers: {[path:string]: ParsingBuffer}
 
 	constructor(plugin: CoolToolPlugin) {
@@ -33,7 +38,6 @@ export class CoolTool implements CoolToolInterface {
             // this.parsingBuffers[path] = this.getParsingBuffer(path)
         })
         // this.plugin.app.workspace.on("active-leaf-change", () => {
-		// 	console.log("XXX6 Active leaf changed!")
 		// 	new Notice("Active leaf changed!")
 		// })
 	}
@@ -54,7 +58,7 @@ export class CoolTool implements CoolToolInterface {
 
     // Tasks ====================================
 
-    isDelegatedTask(task:any): boolean {
+    isDelegatedTask(task:any, me?:string): boolean {
         let actor = null
         let match = task.description.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
         if (match)
@@ -64,7 +68,7 @@ export class CoolTool implements CoolToolInterface {
             actor = match[1]
         if (!actor)
             return false
-        return (actor !== process.env.MATCH_CODE)
+        return (actor !== (me ? me : process.env.MATCH_CODE))
     }
 
 
@@ -130,6 +134,12 @@ export class CoolTool implements CoolToolInterface {
 
     // Macros ===================================
     property(key: string, path?: string|Link): any {
+        if (key === "Project_ID") {
+            let value = this.property("Nessie_ID", path)
+            if (!value)
+                value = this.property("Salesforce_ID", path)
+            return value
+        }
         path = this.pathFromLink(path)
         const page = this.dv.page(path)
         const value = page[key]
@@ -138,6 +148,9 @@ export class CoolTool implements CoolToolInterface {
             if (parent)
                 return this.property(key, parent)
         }
+        if (key === "Client")
+            if (key.startsWith("[[") && key.endsWith("]]"))
+                key = key.slice(2, -2)
         return value
     }
 
@@ -167,6 +180,15 @@ export class CoolTool implements CoolToolInterface {
         return all
 	}
 
+    cleanMatchcodes(mcs: string[]): string[] {
+        return mcs.map(m => {
+            const match = m.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
+            if (match)
+                return match[2]
+            return m
+        })
+    }
+
     callout(text: string, type: string="", title: string = ""): string {
         const allText = `> [!${type}] ${title}\n` + text
         const lines = allText.split('\n')
@@ -179,44 +201,50 @@ export class CoolTool implements CoolToolInterface {
 
     actionPlan(title:string="Agreed Tasks"): string {
         const query = `
-            path includes {{query.file.path}}
+            filter by function task.file.path.includes(ct.plugin.app.workspace.getActiveFile().path)
             sort by priority
         `
         return this.tasks(query, title)
     }
     
 	// Templates ===============================
-	async createNote(template: string, args:{[key: string]: any}, noteName:string) {
+	async createNote(context:any, template: string, noteName:string, args:{[key: string]: any}={}): Promise<TFile | undefined> {
+        try {
+            const app = this.plugin.app
+            const editor = app.workspace.activeEditor!.editor!
+            const text = editor.getValue()
+            // const match = text.match(new RegExp("```\\s*meta-bind-button[\\s\\S\n]+?\\s+code:\\s*'ct.createNote\\(.+`" + escapeRegExp(noteName) + "`\\)[\\s\\S\n]*?'[\\s\\S\n]*?(```)", ""))
+            // if (!match) {
+            //     throw "Cannot find button. You probably changed the button code in an unexpected way."
+            // }
+            // const endOfbuttonPos = editor.offsetToPos(match.index! + match[0].length)
+            const note = await this.createNoteFromTemplate(template, noteName, args)
+            if (!note) {
+                throw "Note creation failed."
+            }
+            editor.replaceRange(`[[${note?.basename}]]\n`, {line: context.buttonContext.position.lineEnd + 1, ch: 0})
+            return note
+        } catch (err) {
+			new Notice("ERROR:\n" + err, 30000)
+			console.log("Error: ", err)
+        }
+	}
+
+    async createNoteFromTemplate(template: string, noteName:string, args:{[key: string]: any}={}): Promise<TFile | undefined> {
 		const app = this.plugin.app
 		const tp = app.plugins.plugins["templater-obsidian"] as TemplaterPlugin
 		const file = app.workspace.activeEditor!.file!
 		template = await tp.templater.parse_template({template_file: undefined, target_file: file, run_mode: "AppendActiveFile", active_file: file}, template)
 		const templatePath = this.templatesFolder+"/"+template+".md"
 		const templateFile = app.vault.getFileByPath(templatePath)
-		if (!templateFile) {
-			const msg = `Template file "${templatePath}" does not exist.`
-			new Notice(msg)
-			throw "Error:\n" + msg
-		}
-		const editor = app.workspace.activeEditor!.editor!
-		const text = editor.getValue()
-		const match = text.match(new RegExp("```\\s*meta-bind-button[\\s\\S\n]+?\\s+code:\\s*'ct.createNote\\(.+`" + escapeRegExp(noteName)  + "`\\)[\\s\\S\n]*?'[\\s\\S\n]*?(```)", ""))
-		if (!match) {
-			new Notice("ERROR\nCannot find button. You probably changed the button code in an unexpected way.")
-			return
-		}
-		const endOfbuttonPos = editor.offsetToPos(match.index! + match[0].length)
+		if (!templateFile)
+			throw `Template file "${templatePath}" does not exist.`
 		this.templateArgs = args
 		this.templateArgs["path"] = file.path
 		noteName = await tp.templater.parse_template({template_file: undefined, target_file: file, run_mode: "AppendActiveFile", active_file: file}, noteName)
 		const note = await tp.templater.create_new_note_from_template(templateFile, file.parent!, noteName, false)
-        if (!note) {
-            new Notice(`ERROR: Note creation failed. Check log!`)
-            return
-        }
-		editor.replaceRange(`\n[[${note?.basename}]]`, endOfbuttonPos)
 		return note
-	}
+    }
 
     tracker(who: string[], what: string, priority: number=0, deadline?: string, scheduled?: string): string {
         let prio = ["", " ⏬", " 🔽", " 🔼", " ⏫", " 🔺"][priority]
@@ -311,7 +339,7 @@ export class CoolTool implements CoolToolInterface {
 
 
     // Outlook ==================================
-    async createOutlookItem(context: any, type: string): Promise<{ [key: string]: string }> {
+    async createOutlookItem(context: any, type: string): Promise<{ [key: string]: string } | null> {
         let outlookItem: { [key: string]: string } = {"for":"", "to":"", "cc":"", "deadline":"", "scheduled":""}
         try {
             const text = (await renderBranch(this.plugin, context.buttonContext.position.lineStart))!
@@ -330,6 +358,7 @@ export class CoolTool implements CoolToolInterface {
             const msg = "ERROR: Cannot create Email.\nIs the branch structure correct?\n" + e
             console.log(msg)
             new Notice(msg)
+            return null
         }
         let cmd = "$ol = New-Object -comObject Outlook.Application\n"
         cmd += `$item = $ol.CreateItem(${type==="mail" ? 0 : type==="appointment" ? 1 : 3})\n`
@@ -348,4 +377,208 @@ export class CoolTool implements CoolToolInterface {
         return outlookItem
     }
 
+
+    // Retain ===================================
+    async importRetain(context: any, projectID: string) {
+        const waitModal = new WaitModal(this.plugin.app)
+        waitModal.open()
+        try {
+            if (!projectID)
+                projectID = this.property("Project_ID")
+            const insertLine = context.buttonContext.position.lineEnd + 1
+            const configPath = path.join(os.homedir(), "retain.json")
+            const api = new RetainAPI(configPath)
+            new Notice("Importing...\nDo not make any changes until the link was inserted below!")
+            const [project, team, allocations] = await api.getProjectDataWithBookingsAsMarkdown(projectID)
+            if (!project) {
+                new Notice(`Project not found in Retain: ${projectID}`, 7000)
+                waitModal.close()
+                return
+            }
+            let text = project
+            if (team) {
+                text = text + "# Team\n" + team + "-----\n# Team Allocations\n" + allocations
+            }
+            const note = await this.createNoteFromTemplate("Blanco", "Retain " + projectID, {content: text})
+            this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`[[${note!.basename}]]\n`, {line:insertLine, ch:0})
+            new Notice("Project imported from Retain.")
+        } catch (err) {
+            if (err.startsWith("Error: Command failed: curl")) {
+                new Notice("ERROR:\nConnection to Retain failed.\nIs VPN active?", 10000)
+                // console.log(err) // includes credentials
+            } else {
+                new Notice("ERROR:\n" + err)
+                console.log("ERROR:", err)
+            }
+        }
+        waitModal.close()
+    }
+
+
+    // Project Creation =========================
+    async createProject(projectID: string, importIt: boolean, parent: boolean) {
+        try {
+            this.templateArgs = {}
+            let projectCountry: string | undefined
+            const match = projectID.match(/^([A-Z]{2})[0-9]{6}/)
+            if (match) {
+                projectCountry = match[1]
+                this.templateArgs["Nessie_ID"] = projectID
+            } else {
+                if (!projectID.match(/^[0-9]{10}/))
+                    throw `Invalid format for a project ID: ${projectID}`
+                this.templateArgs["Salesforce_ID"] = projectID
+            }
+            const allMdFiles = this.plugin.app.vault.getMarkdownFiles().map(f => f.basename)
+            if (allMdFiles.includes(projectID))
+                throw `There is already a note with the same name in this vault: ${projectID}`
+    		const app = this.plugin.app
+            const tp = app.plugins.plugins["templater-obsidian"] as TemplaterPlugin
+            const templatePath = this.templatesFolder+"/Project.md"
+            const templateFile = app.vault.getFileByPath(templatePath)
+            if (!templateFile)
+                throw `Template file "${templatePath}" does not exist.`
+            // const file = app.workspace.activeEditor!.file
+            const projectPath = CT_PROJECTS_ROOT + "/" + (projectCountry ? projectCountry : "Salesforce") + "/" + projectID
+            this.templateArgs["projectID"] = projectID
+            this.templateArgs["path"] = projectPath
+            let project: string | undefined
+            let team: string | undefined
+            let allocations: string | undefined
+            if (importIt) {
+                const configPath = path.join(os.homedir(), "retain.json")
+                const api = new RetainAPI(configPath)
+                new Notice("Importing...");
+                [project, team, allocations] = await api.getProjectDataWithBookingsAsMarkdown(projectID)
+                if (!project) {
+                    throw `Project not found in Retain: ${projectID}`
+                }
+                this.templateArgs["properties"] = project
+                this.templateArgs["team"] = team
+                let text = project
+                if (team) {
+                    text = text + "# Team\n" + team + "-----\n# Team Allocations\n" + allocations
+                }
+                this.templateArgs["content"] = text
+                this.templateArgs["retain"] = (await tp.templater.create_new_note_from_template(app.vault.getFileByPath(this.templatesFolder+"/Blanco.md")!, projectPath, "Retain " + projectID, false))!
+            }
+            let note: TFile
+            if (parent) {
+                const editor = app.workspace.activeEditor!.editor!
+                this.templateArgs["parent"] = app.workspace.getActiveFile()!.basename
+                editor.replaceRange(`[[${projectID}]]`, editor.getCursor())
+                note = (await tp.templater.create_new_note_from_template(templateFile, projectPath, projectID, true))!
+            } else {
+                note = (await tp.templater.create_new_note_from_template(templateFile, projectPath, projectID, true))!
+            }
+            tp.templater.create_new_note_from_template(app.vault.getFileByPath(this.templatesFolder+"/Tasks Tracking.md")!, projectPath, "Tasks Tracking " + projectID, false)
+            // return note
+        } catch (err) {
+            console.log(err)
+            new Notice("ERROR:\n" + err)
+        }
+    }
+
+
+    // People Import ============================
+    async importPeople() {
+        const configPath = path.join(os.homedir(), "retain.json")
+        const api = new RetainAPI(configPath)
+        const resources = await api.getAllResources()
+        // console.log("XXX1", resources)
+        // return
+        new Notice(`Downloaded ${resources.length} people.`)
+        const app = this.plugin.app
+        const tp = app.plugins.plugins["templater-obsidian"] as TemplaterPlugin
+        const templatePath = this.templatesFolder+"/Resource.md"
+        const templateFile = app.vault.getFileByPath(templatePath)!
+        for (let r of resources) {
+            this.templateArgs = {
+                "Name": r.RES_DESCR,
+                "MatchCode": r.RES_USRLOGON,
+                "Manager": r.RES_MANAGER_RES_ID_DESCR,
+                "GCM": r.RES_GCM_ID_DESCR,
+                "DAS": r.RES_DASID,
+                "Email": r.RES_EMAIL,
+                "Location": r.RES_LOC_ID_DESCR,
+                "OrgUnit": r.RES_ORG_ID_DESCR}
+            const note = (await tp.templater.create_new_note_from_template(templateFile, CT_PROJECTS_ROOT + "/People/Retain", r.RES_DESCR, false))
+        }
+        new Notice(`Imported ${resources.length} people.`)
+    }
+}
+
+
+// Import People ================================
+
+export const ImportPeopleCommand = (plugin: CoolToolPlugin): Command => ({
+    id: 'import-people',
+    name: 'Import people',
+    callback: async () => {
+        window.ct.importPeople()
+    },
+})
+
+
+// Project Creation =============================
+
+export const CreateProjectCommand = (plugin: CoolToolPlugin): Command => ({
+    id: 'create-project',
+    name: 'Create Project',
+    callback: () => {
+        new CreateProjectModal(plugin.app, (projectID: string, importIt: boolean, parent: boolean) => {
+            window.ct.createProject(projectID, importIt, parent)
+          }).open()
+    }
+})
+
+export class CreateProjectModal extends Modal {
+    constructor(app: App, onSubmit: (projectID: string, importIt: boolean, parent: boolean) => void) {
+        super(app)
+        this.setTitle('Create Project')
+    
+        let name = ''
+        new Setting(this.contentEl)
+            .setName('Project ID')
+            .addText((text) =>
+            text.onChange((value) => {
+                name = value
+            }))
+
+            let importIt = true
+            new Setting(this.contentEl)
+            .setName('Import from Retain')
+            .addToggle((toggle) =>
+                toggle
+                .setValue(importIt)
+                .onChange(() => {
+                    importIt = !importIt
+                }))
+
+                let parent = false
+                new Setting(this.contentEl)
+                .setName('Belongs to this note')
+                .addToggle((toggle) =>
+                    toggle
+                    .setValue(parent)
+                    .onChange(() => {
+                        parent = !parent
+                    }))
+        
+        new Setting(this.contentEl)
+            .addButton((btn) =>
+                btn
+                .setButtonText('Create')
+                .setCta()
+                .onClick(() => {
+                    this.close()
+                    onSubmit(name, importIt, parent)
+                }))
+            this.scope.register([], "enter", (event: KeyboardEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                this.close()
+                onSubmit(name, importIt, parent)
+            })
+    }
 }
