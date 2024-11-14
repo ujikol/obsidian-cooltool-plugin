@@ -438,6 +438,55 @@ export const configureDefaultSettingsCommand = (plugin: CoolToolPlugin): Command
             merge(c, add)
         })
         
+        // graph and local graph ================
+        patchFile("graph", vault, (c: any) => {
+            let add = JSON.parse(`{
+  "statusSettings": {
+    "coreStatuses": [
+      {
+        "symbol": " ",
+        "name": "Todo",
+        "nextStatusSymbol": "x",
+        "availableAsCommand": true,
+        "type": "IN_PROGRESS"
+      },
+      {
+        "symbol": "x",
+        "name": "Done",
+        "nextStatusSymbol": " ",
+        "availableAsCommand": true,
+        "type": "DONE"
+      }
+    ],
+    "customStatuses": [
+      {
+        "symbol": "w",
+        "name": "Waiting",
+        "nextStatusSymbol": " ",
+        "availableAsCommand": true,
+        "type": "TODO"
+      },
+      {
+        "symbol": "-",
+        "name": "Cancelled",
+        "nextStatusSymbol": " ",
+        "availableAsCommand": true,
+        "type": "CANCELLED"
+      },
+      {
+        "symbol": "?",
+        "name": "Question",
+        "nextStatusSymbol": "x",
+        "availableAsCommand": false,
+        "type": "IN_PROGRESS"
+      }
+    ]
+  },
+            }`)
+            c.colorGroups = unionWith(c.colorGroups, add, (o:any, n:any) => o.query === n.query)
+            merge(c, add)
+        })
+        
 
         // More above this ======================
         if (changed)
