@@ -47,7 +47,7 @@ export class ParsingBuffer {
     }
 
     parseTable(markdown: string): TableRow[] {
-        let rows = markdown.trim().split('\n')
+        let rows = markdown.split('\n')
         rows = rows.slice(0, rows.findIndex(r => !r.startsWith("| ")))
         const headers = rows[0].split('|').map(header => header.trim()).filter(Boolean)
         const dataRows = rows.slice(2)

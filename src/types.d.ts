@@ -1,13 +1,21 @@
 import { Plugin, TFile, TFolder } from 'obsidian'
 import { DataviewApi } from "obsidian-dataview"
 
-interface CoolToolPlugin extends Plugin {}
+interface CoolToolPlugin extends Plugin {
+    settings: CoolToolSettings
+    loadSettings(): Promise<void>
+    saveSettings(): Promise<void>
+}
 
 interface CoolToolInterface {
     plugin: Plugin
 	dv: DataviewApi
 	createProject: (projectID:string, importIt: boolean, parent: boolean) => any
     importPeople: () => any
+}
+
+type CoolToolSettings = {
+    me: string[]
 }
 
 interface TemplaterPlugin {
@@ -17,6 +25,7 @@ interface TemplaterPlugin {
         create_running_config: (template_file: TFile | undefined, target_file: TFile, run_mode: any) => any
     }
 }
+
 interface WebpageExportPlugin {
     api: {
         renderMarkdownToString: (markdown: string, options?: MarkdownRendererAPIOptions) => Promise<string | undefined>
@@ -25,7 +34,7 @@ interface WebpageExportPlugin {
 
 declare global {
     interface Window {
-        ct: CoolToolInterface;
+        ct: CoolToolInterface
     }
 }
 

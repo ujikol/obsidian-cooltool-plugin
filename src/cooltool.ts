@@ -1,4 +1,4 @@
-import { CoolToolPlugin, CoolToolInterface, TemplaterPlugin } from "../src/types"
+import { CoolToolPlugin, CoolToolSettings, CoolToolInterface, TemplaterPlugin } from "../src/types"
 import { TableRow } from "../src/dataview"
 import { msteamsSetupTeam } from "../src/msteams"
 import { WaitModal, convertHtmlToRtf } from "../src/util"
@@ -43,6 +43,7 @@ export class CoolTool implements CoolToolInterface {
 	}
 
     private getParsingBuffer(path:string, afterInit?: (buf: ParsingBuffer) => void): ParsingBuffer {
+        this.dv.page(path)
         let buf = this.parsingBuffers[path]
         if (!buf) {
             buf = new ParsingBuffer(this.plugin, this)
@@ -58,17 +59,17 @@ export class CoolTool implements CoolToolInterface {
 
     // Tasks ====================================
 
-    isDelegatedTask(task:any, me?:string): boolean {
+    isDelegatedTask(task:any, me?:string[]): boolean {
+        if (!me)
+            me = this.plugin.settings.me
         let actor = null
-        let match = task.description.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
+        let match = task.description.match(/^@(\w+)/)
         if (match)
-            actor = match[2]
-        match = task.description.match(/^@(\w+)/)
+            return !me.includes(match[1])
+        match = task.description.match(/^\[\[(([^\]@]+)\|)?@(.+)\]\]/)
         if (match)
-            actor = match[1]
-        if (!actor)
-            return false
-        return (actor !== (me ? me : process.env.MATCH_CODE))
+            return !(me.includes(match[2]) || me.includes(match[3]))
+        return false
     }
 
 
@@ -201,7 +202,7 @@ export class CoolTool implements CoolToolInterface {
 
     actionPlan(title:string="Agreed Tasks"): string {
         const query = `
-            filter by function task.file.path.includes(ct.plugin.app.workspace.getActiveFile().path)
+            filter by function task.file.path.includes(query.file.path)
             sort by priority
         `
         return this.tasks(query, title)
@@ -306,14 +307,30 @@ export class CoolTool implements CoolToolInterface {
     }
 
     pathFromLink(path?: string|Link): string {
-        if (!path)
-            return this.plugin.app.workspace.activeEditor!.file!.path
-        if (this.dv.value.isLink(path))
-            path = path.path
-        const match = path.match(/^\s*\[\[(.+)(\|.*)?\]\]\s*$/)
-        if (match)
-            path = match[1]
-        return this.dv.page(path).file.path
+        if (!path) {
+            // Try multiple methods to get the current file path
+            const activeFile = 
+                // Try active editor first
+                (this.plugin.app.workspace.activeEditor?.file) ||
+                // Fall back to active file
+                this.plugin.app.workspace.getActiveFile() ||
+                // If all else fails, try active view
+                (this.plugin.app.workspace.getActiveViewOfType(MarkdownView)?.file);
+                
+            if (!activeFile) {
+                throw new Error("Cannot determine current file path - no active file found");
+            }
+            return activeFile.path;
+        }
+
+        if (this.dv.value.isLink(path)) {
+            path = path.path;
+        }
+        const match = path.match(/^\s*\[\[(.+)(\|.*)?\]\]\s*$/);
+        if (match) {
+            path = match[1];
+        }
+        return this.dv.page(path).file.path;
     }
 
     logTrue(...args:any){
@@ -399,6 +416,7 @@ export class CoolTool implements CoolToolInterface {
             if (team) {
                 text = text + "# Team\n" + team + "-----\n# Team Allocations\n" + allocations
             }
+            text = "Copy starting with the next line! So skip this line.\n" + text
             const note = await this.createNoteFromTemplate("Blanco", "Retain " + projectID, {content: text})
             this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`[[${note!.basename}]]\n`, {line:insertLine, ch:0})
             new Notice("Project imported from Retain.")
@@ -485,8 +503,6 @@ export class CoolTool implements CoolToolInterface {
         const configPath = path.join(os.homedir(), "retain.json")
         const api = new RetainAPI(configPath)
         const resources = await api.getAllResources()
-        // console.log("XXX1", resources)
-        // return
         new Notice(`Downloaded ${resources.length} people.`)
         const app = this.plugin.app
         const tp = app.plugins.plugins["templater-obsidian"] as TemplaterPlugin

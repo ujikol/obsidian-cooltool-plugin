@@ -108,7 +108,6 @@ export class RetainAPI {
                     ]}
                 ]}
             }) as any
-        // console.log("XXX2", response)
         return (response.result.values as any[]).map(r=>r.RES)
     }
 
@@ -125,6 +124,7 @@ export class RetainAPI {
         let allocationsOutput: string | undefined
         let resIDs = [...new Set(bookings.map(b=>b.BKG_RES_ID))]
         resIDs.push(job.JOB_AC_LEAD_RES_ID)
+        resIDs.push(job.JOB_EM_LEAD_RES_ID)
         const filters = resIDs.map(r => ({"table": "RES", "field": "RES_ID", "operator": "=", "value": r}))
         response = await this.request('/table/RES/',{"filter": {"or": filters}})
         resources = (response.result.values as any[]).map(r=>r.RES)
@@ -136,19 +136,21 @@ export class RetainAPI {
         const projectName = job["JOB_DESCR"] || "Unnamed Project"
         const client = job["JOB_CLT_ID_DESCR"] || "Unknown Client"
         const budgetPd = job["JOB_BUDGET_TIME"] / 8
+        const pm = resources.find(r => r.RES_ID === job.JOB_EM_LEAD_RES_ID)
         const pdMap: {[id:number]:string} = {9922:"Web"}
         const jobOutput = `---
 Nessie_ID: ${job["JOB_CODE"]}
 Salesforce_ID: ${job["JOB_CODESF"]}
-Project_Name: ${projectName}
+Project_Name: "${projectName}"
 Client: "[[${client}]]"
+PM: '[[${pm.RES_DESCR}\\|@${pm.RES_USRLOGON}]]'
 Budget_PD: ${budgetPd}
 Avg_PD_Rate: ${job["JOB_BUDGET_REVENUE"] / budgetPd || "N/A"}
 Execution_Start: ${job["JOB_START"]?.slice(0, 10) || "Unknown Start Date"}
 Language: en
 Products:
-  - ${pdMap[job.JOB_PRD_ID] || "Unknown Product"}
-Project_Folder: S:\\EMEA\\Delivery_Auto\\${client[0]}\\${client}\\${job["JOB_CODE"]} ${projectName}
+  - "${pdMap[job.JOB_PRD_ID] || "Unknown Product"}"
+Project_Folder: "S:\\\\EMEA\\\\Delivery_Auto\\\\${client[0]}\\\\${client}\\\\${job["JOB_CODE"]} ${projectName}"
 Mailbox: 
 aliases:
   - ${client} - ${projectName}

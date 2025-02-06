@@ -2,26 +2,23 @@
 import { Plugin } from 'obsidian'
 import { CoolTool, CreateProjectCommand, ImportPeopleCommand } from 'src/cooltool'
 import { configureDefaultSettingsCommand } from 'src/configure'
+import { CoolToolSettings } from 'src/types'
+import { CoolToolSettingTab } from 'src/settings'
+import { NoteAsHtmlToClipboardCommand, ExportNoteAsHtmlCommand } from 'src/render'
 
-// const tmp = require('tmp')
-// import { DataviewInlineApi } from 'obsidian-dataview/lib/api/inline-api'
-
-// interface MyPluginSettings {
-// 	mySetting: string;
-// }
-
-// const DEFAULT_SETTINGS: MyPluginSettings = {
-// 	mySetting: 'default'
-// }
 
 export default class CoolToolPlugin extends Plugin {
+    settings: CoolToolSettings
 
 	async onload() {
-		// await this.loadSettings();
 		window.ct = new CoolTool(this)
+        await this.loadSettings()
 		this.addCommand(configureDefaultSettingsCommand(this))
+		this.addSettingTab(new CoolToolSettingTab(this.app, this));
 		this.addCommand(CreateProjectCommand(this))
 		this.addCommand(ImportPeopleCommand(this))
+		this.addCommand(NoteAsHtmlToClipboardCommand(this))
+		this.addCommand(ExportNoteAsHtmlCommand(this))
 		this.addCommand(
 			{
 				id: 'toggle-dark-mode',
@@ -37,37 +34,11 @@ export default class CoolToolPlugin extends Plugin {
 
 	}
 
-	// async loadSettings() {
-	// 	this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	// }
+	async loadSettings() {
+		this.settings = Object.assign({}, {me: []}, await this.loadData())
+	}
 
-	// async saveSettings() {
-	// 	await this.saveData(this.settings);
-	// }
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
 }
-
-// class SampleSettingTab extends PluginSettingTab {
-// 	plugin: MyPlugin;
-
-// 	constructor(app: App, plugin: MyPlugin) {
-// 		super(app, plugin);
-// 		this.plugin = plugin;
-// 	}
-
-// 	display(): void {
-// 		const {containerEl} = this;
-
-// 		containerEl.empty();
-
-// 		new Setting(containerEl)
-// 			.setName('Setting #1')
-// 			.setDesc('It\'s a secret')
-// 			.addText(text => text
-// 				.setPlaceholder('Enter your secret')
-// 				.setValue(this.plugin.settings.mySetting)
-// 				.onChange(async (value) => {
-// 					this.plugin.settings.mySetting = value;
-// 					await this.plugin.saveSettings();
-// 				}));
-// 	}
-// }
