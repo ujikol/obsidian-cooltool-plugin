@@ -4,7 +4,7 @@ import { CoolTool, CreateProjectCommand, ImportPeopleCommand } from 'src/cooltoo
 import { configureDefaultSettingsCommand } from 'src/configure'
 import { CoolToolSettings } from 'src/types'
 import { CoolToolSettingTab } from 'src/settings'
-import { NoteAsHtmlToClipboardCommand, ExportNoteAsHtmlCommand } from 'src/render'
+// import { NoteAsHtmlToClipboardCommand, ExportNoteAsHtmlCommand } from 'src/render'
 
 
 export default class CoolToolPlugin extends Plugin {
@@ -17,8 +17,8 @@ export default class CoolToolPlugin extends Plugin {
 		this.addSettingTab(new CoolToolSettingTab(this.app, this));
 		this.addCommand(CreateProjectCommand(this))
 		this.addCommand(ImportPeopleCommand(this))
-		this.addCommand(NoteAsHtmlToClipboardCommand(this))
-		this.addCommand(ExportNoteAsHtmlCommand(this))
+		// this.addCommand(NoteAsHtmlToClipboardCommand(this))
+		// this.addCommand(ExportNoteAsHtmlCommand(this))
 		this.addCommand(
 			{
 				id: 'toggle-dark-mode',

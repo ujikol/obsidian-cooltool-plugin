@@ -359,29 +359,36 @@ export class CoolTool implements CoolToolInterface {
     async createOutlookItem(context: any, type: string): Promise<{ [key: string]: string } | null> {
         let outlookItem: { [key: string]: string } = {"for":"", "to":"", "cc":"", "deadline":"", "scheduled":""}
         try {
-            const text = (await renderBranch(this.plugin, context.buttonContext.position.lineStart))!
-            const parser = new DOMParser()
-            const html = parser.parseFromString(text, 'text/html')
-            const fields = html.getElementsByTagName("p")[0].innerText
+            const html = (await renderBranch(this.plugin, context.buttonContext.position.lineStart))!
+            // const parser = new DOMParser()
+            // const html = parser.parseFromString(text, 'text/html')
+            const firstParagraph = html.getElementsByTagName("p")[0]
+            const fields = firstParagraph.innerText
             fields.split("\n").forEach(line => {
                 const [all, key, value] = line.match(/^(\w+):\s?(.*)$/)!
-                // if (!["for", "from", "to", "cc"].contains(key))
-                //     throw `Illegal field ${key}`
+                if (!["for", "from", "to", "cc"].contains(key))
+                    throw `Illegal field ${key}`
                 outlookItem[key] = value.split(/[;,]+/).map(e => e.trim()).join("; ")
             })
-            outlookItem["subject"] = html.getElementsByClassName("heading")[0].textContent || ""
-            outlookItem["body"] = html.getElementsByClassName("heading-children")[0].innerHTML
+            const firstHeading = html.getElementsByTagName("h1")[0]
+            outlookItem["subject"] = firstHeading.textContent || ""
+            html.removeChild(html.getElementsByClassName("mb-button")[0])
+            html.removeChild(firstParagraph)
+            html.removeChild(firstHeading)
+            outlookItem["body"] = html.innerHTML
         } catch (e) {
             const msg = "ERROR: Cannot create Email.\nIs the branch structure correct?\n" + e
             console.log(msg)
             new Notice(msg)
             return null
         }
+
+
         let cmd = "$ol = New-Object -comObject Outlook.Application\n"
         cmd += `$item = $ol.CreateItem(${type==="mail" ? 0 : type==="appointment" ? 1 : 3})\n`
         cmd += `$item.Subject = '${outlookItem["subject"]}'\n`
         if (type==="mail")
-            cmd += `$item.HtmlBody = ${pssavpar(outlookItem["body"])}\n`
+            cmd += `$item.HtmlBody = ${pssavpar(outlookItem["body"])} \n`
         else
             cmd += `$item.Body = ${pssavpar(convertHtmlToRtf(outlookItem["body"])!)}\n`
         cmd += `$item.${type==="task" ? "Delegator" : "SentOnBehalfOfName"} = '${outlookItem["for"]}'\n`

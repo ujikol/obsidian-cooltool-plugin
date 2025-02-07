@@ -26,12 +26,6 @@ interface TemplaterPlugin {
     }
 }
 
-interface WebpageExportPlugin {
-    api: {
-        renderMarkdownToString: (markdown: string, options?: MarkdownRendererAPIOptions) => Promise<string | undefined>
-    }
-}
-
 declare global {
     interface Window {
         ct: CoolToolInterface
