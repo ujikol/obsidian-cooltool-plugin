@@ -1,6 +1,6 @@
 {
-	"name": "obsidian-cooltool-plugin",
-	"version": "1.0.0",
+	"name": "cooltool",
+	"version": "1.0.1",
 	"description": "CoolTool",
 	"main": "main.js",
 	"scripts": {

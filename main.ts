@@ -1,7 +1,6 @@
 // import { ChildProcess } from 'child_process';
 import { Plugin } from 'obsidian'
 import { CoolTool, CreateProjectCommand, ImportPeopleCommand } from 'src/cooltool'
-import { configureDefaultSettingsCommand } from 'src/configure'
 import { CoolToolSettings } from 'src/types'
 import { CoolToolSettingTab } from 'src/settings'
 // import { NoteAsHtmlToClipboardCommand, ExportNoteAsHtmlCommand } from 'src/render'
@@ -13,7 +12,6 @@ export default class CoolToolPlugin extends Plugin {
 	async onload() {
 		window.ct = new CoolTool(this)
         await this.loadSettings()
-		this.addCommand(configureDefaultSettingsCommand(this))
 		this.addSettingTab(new CoolToolSettingTab(this.app, this));
 		this.addCommand(CreateProjectCommand(this))
 		this.addCommand(ImportPeopleCommand(this))
