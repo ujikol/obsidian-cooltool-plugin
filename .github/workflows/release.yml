@@ -12,6 +12,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: write-all
 
     steps:
       - uses: actions/checkout@v2
@@ -37,7 +38,7 @@ jobs:
           VERSION: ${{ github.ref }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
+          release_name: v${{ github.ref }}
           draft: false
           prerelease: false
       - name: Upload zip file
