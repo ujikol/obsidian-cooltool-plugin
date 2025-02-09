@@ -62,7 +62,7 @@ export class ParsingBuffer {
             })
             return rowObject
         })
-        return parsedRows.filter(r => r !== null)
+        return parsedRows.filter(r => r !== null) as TableRow[]
     }
 
 	async parseMsTeam(teamName?: string): Promise<[MsTeamsTeam, number|null] | undefined> {

@@ -1,74 +1,42 @@
 // import { requestUrl, RequestUrlResponse } from 'obsidian'
 import {curlGetRequest} from './curl'
 import * as fs from 'fs'
-// import { Moment } from 'moment';
-// import * as moment from 'moment'
-// const moment = require('moment-business-days')
 import { DateTime } from 'luxon-business-days'
 import { getMarkdownTable } from "markdown-table-ts"
 import { sum, zip } from "es-toolkit"
-// import { Moment } from 'moment'
 
 
 interface Config {
-    credentials: string;
-    // domain: string;
-    baseURL: string;
-    // certPath: string;
-    // cert: Buffer;
+    credentials: string
+    baseURL: string
 }
 
 export class RetainAPI {
-    private config: Config;
+    private config: Config
 
     constructor(configFilePath: string) {
-        this.config = this.loadConfig(configFilePath);
+        this.config = this.loadConfig(configFilePath)
     }
 
     // Load config from a local JSON file
     private loadConfig(filePath: string): Config {
         try {
-            const fileContent = fs.readFileSync(filePath, 'utf-8');
-            const config = JSON.parse(fileContent) as Config;
-            // config.cert = fs.readFileSync(config.certPath);
-            return config;
+            const fileContent = fs.readFileSync(filePath, 'utf-8')
+            const config = JSON.parse(fileContent) as Config
+            return config
         } catch (error) {
-            console.error('Error loading config:', error);
-            throw new Error('Failed to load config for NTLM authentication.');
+            console.error('Error loading config:', error)
+            throw new Error('Failed to load config for NTLM authentication.')
         }
     }
 
     // Utility function to format data into a Markdown table
     private formatMarkdownTable(headers: string[], rows: string[][]): string {
-        const headerRow = `| ${headers.join(' | ')} |`;
-        const separatorRow = `| ${headers.map(() => '---').join(' | ')} |`;
-        const dataRows = rows.map(row => `| ${row.join(' | ')} |`).join('\n');
-        return [headerRow, separatorRow, dataRows].join('\n');
+        const headerRow = `| ${headers.join(' | ')} |`
+        const separatorRow = `| ${headers.map(() => '---').join(' | ')} |`
+        const dataRows = rows.map(row => `| ${row.join(' | ')} |`).join('\n')
+        return [headerRow, separatorRow, dataRows].join('\n')
     }
-
-    // // Helper method to make requests with NTLM authentication headers
-    // private async makeRequest(endpoint: string, params?: Record<string, any>): Promise<RequestUrlResponse> {
-    //     const url = `${this.config.baseURL}${endpoint}`;
-    //     const authHeader = 'Basic ' + Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64');
-
-    //     try {
-    //         const response = await requestUrl({
-    //             url,
-    //             headers: {
-    //                 Authorization: authHeader,
-    //                 'Access-Control-Allow-Origin': '*',
-    //             },
-    //             contentType: 'application/json',
-    //             method: params ? 'POST' : 'GET',
-    //             body: params ? JSON.stringify(params) : undefined,
-    //         });
-
-    //         return response;
-    //     } catch (error) {
-    //         console.error('Request failed:', error);
-    //         throw new Error(`Failed to make request to ${url}`);
-    //     }
-    // }
 
     async request(endpoint: string, query?: any, debug=false): Promise<object> {
         let params: string[]|undefined
@@ -91,7 +59,7 @@ export class RetainAPI {
             resource.RES.RES_EMAIL || 'N/A',
             resource.RES.RES_RST_ID_DESCR,
         ])
-        return this.formatMarkdownTable(headers, rows);
+        return this.formatMarkdownTable(headers, rows)
     }
 
     async getAllResources(): Promise<any[]> {
@@ -183,7 +151,9 @@ aliases:
         bookings = bookings
             .map(b => ({
                 res: b.BKG_RES_ID,
+                // @ts-ignore - strange build error TS2693
                 start: DateTime.fromISO(b.BKG_START.substring(0, 10)),
+                // @ts-ignore - strange build error TS2693
                 end: DateTime.fromISO(b.BKG_END.substring(0, 10)),
                 work: b.BKG_TIME
             }))
@@ -246,6 +216,7 @@ aliases:
         const shiftOutput = getMarkdownTable({table: {
             head: [].concat.apply([], [["Week", "Date"], resources.map(r => r.RES_USRLOGON), ["Total"]]),
             body: zip(wks, shiftsPivot).map(x => {
+                // @ts-ignore - strange build error TS2693
                 const week = DateTime.fromMillis(x[0])
                 return [].concat.apply([],
                 [x[0] === -1 ? ["Total", ""] : [week.toISOWeekDate()!.substring(2,9), week.toFormat('YYYY-MM-DD')],
