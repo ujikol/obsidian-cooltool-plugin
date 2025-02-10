@@ -111,6 +111,11 @@ h1, .HyperMD-header-1 {
     padding-left: 8rem !important;
     padding-right: 2rem !important;
   }
+  div.markdown-preview-view,
+  div.markdown-source-view div.cm-content div.cm-lineWrapping { /* Prevent indentation when editing table cells */
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+  }
   
 
 /* Tasks ========================================================================================== */
