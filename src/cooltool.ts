@@ -525,7 +525,10 @@ export class CoolTool implements CoolToolInterface {
                 "Email": r.RES_EMAIL,
                 "Location": r.RES_LOC_ID_DESCR,
                 "OrgUnit": r.RES_ORG_ID_DESCR}
-            const note = (await tp.templater.create_new_note_from_template(templateFile, CT_PROJECTS_ROOT + "/People/Retain", r.RES_DESCR, false))
+                try {
+                    await app.vault.delete(app.vault.getAbstractFileByPath(CT_PROJECTS_ROOT + "/People/Retain/" + r.RES_DESCR + ".md")!)
+                } catch (e) {}
+                const note = (await tp.templater.create_new_note_from_template(templateFile, CT_PROJECTS_ROOT + "/People/Retain", r.RES_DESCR, false))
         }
         new Notice(`Imported ${resources.length} people.`)
     }

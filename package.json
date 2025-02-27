@@ -1,6 +1,5 @@
 {
 	"name": "cooltool",
-	"version": "1.0.1",
 	"description": "CoolTool",
 	"main": "main.js",
 	"scripts": {
