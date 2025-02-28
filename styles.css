@@ -182,21 +182,31 @@ li.task-list-item ul.has-list-bullet {
 } */
 
 /* Custom icons for states */
-/* Find here: https://lucide.dev/
+/* Find here: https://lucide.dev/ (size: 16px)
    Encode here: https://yoksel.github.io/url-encoder/ */
+
+input[type=checkbox]:checked:after {
+    /* -webkit-mask-image: none; */
+    all: unset;
+}  
 .task-list-item-checkbox[data-task=" "], li.task-list-item[data-task-status-name="Todo"] .task-list-item-checkbox {
     border-width: 2px !important;
     border-color: mediumpurple !important;
 }
-/* .task-list-item-checkbox[data-task="x"], li.task-list-item[data-task-status-name="Done"] .task-list-item-checkbox {
-    background-color: red !important;
-} */
+.task-list-item-checkbox[data-task="x"], li.task-list-item[data-task-status-name="Done"] .task-list-item-checkbox {
+    content: ' ' !important;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-check'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
 .task-list-item-checkbox[data-task="."], li.task-list-item[data-task-status-name="Waiting"] .task-list-item-checkbox {
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 36 36' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-hourglass'%3E%3Cpath d='M5 22h14'/%3E%3Cpath d='M5 2h14'/%3E%3Cpath d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'/%3E%3Cpath d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'/%3E%3C/svg%3E");
 }
 .task-list-item-checkbox[data-task="-"], li.task-list-item[data-task-status-name="Cancelled"] .task-list-item-checkbox {
     content: ' ' !important;
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 36 36' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-x'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E");
+}
+.task-list-item-checkbox[data-task="?"], li.task-list-item[data-task-status-name="Question"] .task-list-item-checkbox {
+    content: ' ' !important;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-circle-help'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
 }
 [data-task="-"] {
     text-decoration: line-through !important;
