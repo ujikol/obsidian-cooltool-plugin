@@ -386,7 +386,7 @@ export class CoolTool implements CoolToolInterface {
 
         let cmd = "$ol = New-Object -comObject Outlook.Application\n"
         cmd += `$item = $ol.CreateItem(${type==="mail" ? 0 : type==="appointment" ? 1 : 3})\n`
-        cmd += `$item.Subject = '${outlookItem["subject"]}'\n`
+        cmd += `$item.Subject = ${pssavpar(outlookItem["subject"])}\n`
         if (type==="mail")
             cmd += `$item.HtmlBody = ${pssavpar(outlookItem["body"])} \n`
         else

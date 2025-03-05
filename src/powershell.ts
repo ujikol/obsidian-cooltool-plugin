@@ -24,8 +24,8 @@ export async function executePowerShellCommand(cmd: string): Promise<[boolean, s
     }
     const tmpFile = require('tmp').tmpNameSync({postfix: '.ps1'})
     require('fs').writeFileSync(tmpFile, cmd)
+    // console.log("XXX0", tmpFile)
     let [success, output] = await execute('-file ' + tmpFile)
-    // console.log("XXX0 " + tmpFile)
     require('fs').unlinkSync(tmpFile)
     return [success, output]
 }
