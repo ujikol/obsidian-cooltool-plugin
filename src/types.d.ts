@@ -68,6 +68,11 @@ interface TemplaterPlugin {
 declare global {
     interface Window {
         ct: CoolToolInterface
+        CodeMirrorAdapter: {
+            commands: {
+               save(): void
+            }
+        }
     }
 }
 

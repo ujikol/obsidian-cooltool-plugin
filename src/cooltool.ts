@@ -5,7 +5,7 @@ import { WaitModal, convertHtmlToRtf } from "../src/util"
 import { ParsingBuffer } from "../src/parsing-buffer"
 import { renderBranch} from "../src/render"
 import { executePowerShellCommand, pssavpar} from "../src/powershell"
-import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile} from 'obsidian'
+import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache} from 'obsidian'
 import { getAPI, DataviewApi, Link, DataArray } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
@@ -608,3 +608,46 @@ export class CreateProjectModal extends Modal {
             })
     }
 }
+
+// Automatic Properties =============================
+
+export async function updateProperties(file: TFile, delay: number = 0) {
+    let timeoutId: NodeJS.Timeout | null = null
+    let isCancelled = false
+  
+    return new Promise<void>((resolve) => {
+        if (timeoutId) {
+            clearTimeout(timeoutId)
+            isCancelled = true
+        }
+        timeoutId = setTimeout(() => {
+            if (!isCancelled && file && file.path) {
+                actuallyUpdateProperties(file)
+                resolve()
+            } else {
+                resolve()
+            }
+            timeoutId = null
+        }, delay);
+    });
+}
+
+async function actuallyUpdateProperties(file: TFile) {
+    await window.ct.plugin.app.fileManager.processFrontMatter(file, (fm: FrontMatterCache) => {
+        const dv = window.ct.dv
+        const page = dv.page(file.path)
+        if (fm.tags?.indexOf("SEC_Standard_Project") > -1) {
+            fm.Status = page.file.tasks.filter((t: any) => [" ", "."].contains(t.status)).length
+        }
+    })
+}
+
+export const UpdatePropertiesCommand = (plugin: CoolToolPlugin): Command => ({
+    id: 'update-properties',
+    name: 'Update Properties',
+    callback: () => {
+        const dv = window.ct.dv
+        const file = dv.app.workspace.getActiveFile()
+        updateProperties(file)
+    }
+})

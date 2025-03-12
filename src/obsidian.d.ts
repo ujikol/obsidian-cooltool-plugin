@@ -1,9 +1,20 @@
 // import * as obsidian from 'obsidian'
 import { DataviewApi } from 'obsidian-dataview'
+import {Command} from 'obsidian'
+import {EditorView} from '@codemirror/view'
 // import { DataArray } from 'obsidian-dataview/lib/api/data-array'
 // import * as internal from 'stream'
 
-
+export interface ObsidianCommandInterface {
+    executeCommandById(id: string): void
+    // commands: {
+    //     'editor:save-file': {
+    //         callback(): void
+    //     }
+    // }
+    // listCommands(): Command[]
+}
+  
 declare module 'obsidian' {
     interface App {
         plugins: {
@@ -66,6 +77,9 @@ declare module 'obsidian' {
     }
     interface DataAdapter {
         basePath: string
+    }
+    interface Editor {
+        cm?: EditorView
     }
 }
 
