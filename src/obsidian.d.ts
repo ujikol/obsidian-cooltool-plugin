@@ -5,15 +5,6 @@ import {EditorView} from '@codemirror/view'
 // import { DataArray } from 'obsidian-dataview/lib/api/data-array'
 // import * as internal from 'stream'
 
-export interface ObsidianCommandInterface {
-    executeCommandById(id: string): void
-    // commands: {
-    //     'editor:save-file': {
-    //         callback(): void
-    //     }
-    // }
-    // listCommands(): Command[]
-}
   
 declare module 'obsidian' {
     interface App {
@@ -48,12 +39,14 @@ declare module 'obsidian' {
             }
         }
         commands: {
+            executeCommandById(id: string): void
             commands: {
                 [id:string]: {
                     callback: () => void
                 }
             }
             removeCommand: (commandName: string) => void
+            listCommands(): Command[]
         }
     }
     interface MetadataCache {
