@@ -111,7 +111,7 @@ Nessie_ID: ${job["JOB_CODE"]}
 Salesforce_ID: ${job["JOB_CODESF"]}
 Project_Name: "${projectName}"
 Client: "[[${client}]]"
-PM: '[[${pm.RES_DESCR}\\|@${pm.RES_USRLOGON}]]'
+PM: '[[${pm.RES_DESCR}|@${pm.RES_USRLOGON}]]'
 Budget_PD: ${budgetPd}
 Avg_PD_Rate: ${job["JOB_BUDGET_REVENUE"] / budgetPd || "N/A"}
 Execution_Start: ${job["JOB_START"]?.slice(0, 10) || "Unknown Start Date"}
