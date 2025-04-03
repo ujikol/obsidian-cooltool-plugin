@@ -463,8 +463,8 @@ export class CoolTool implements CoolToolInterface {
             const templateFile = app.vault.getFileByPath(templatePath)
             if (!templateFile)
                 throw `Template file "${templatePath}" does not exist.`
-            // const file = app.workspace.activeEditor!.file
-            const projectPath = CT_PROJECTS_ROOT + "/" + (projectCountry ? projectCountry : "Salesforce") + "/" + projectID
+            // const projectPath = CT_PROJECTS_ROOT + "/" + (projectCountry ? projectCountry : "Salesforce") + "/" + projectID
+            const projectPath = CT_PROJECTS_ROOT + "/Basic_Projects/" + projectID
             this.templateArgs["projectID"] = projectID
             this.templateArgs["path"] = projectPath
             let project: string | undefined
