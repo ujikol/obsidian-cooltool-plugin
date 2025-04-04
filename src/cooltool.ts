@@ -248,6 +248,7 @@ export class CoolTool implements CoolToolInterface {
     }
 
     tracker(who: string[], what: string, priority: number=0, deadline?: string, scheduled?: string): string {
+        console.log("Tracker:", who, what, priority, deadline, scheduled)
         let prio = ["", " ⏬", " 🔽", " 🔼", " ⏫", " 🔺"][priority]
         const parseDateOption = { forwardDate: true }
         let tasks = ""
@@ -365,10 +366,13 @@ export class CoolTool implements CoolToolInterface {
             const firstParagraph = html.getElementsByTagName("p")[0]
             const fields = firstParagraph.innerText
             fields.split("\n").forEach(line => {
+                if (line.trim() === "")
+                    return
                 const [all, key, value] = line.match(/^(\w+):\s?(.*)$/)!
-                if (!["for", "from", "to", "cc"].contains(key))
+                if (!["for", "from", "to", "cc", "track"].contains(key))
                     throw `Illegal field ${key}`
-                outlookItem[key] = value.split(/[;,]+/).map(e => e.trim()).join("; ")
+                if (value)
+                    outlookItem[key] = value //.split(/[;,]+/).map(e => e.trim()).join("; ")
             })
             const firstHeading = html.getElementsByTagName("h1")[0]
             outlookItem["subject"] = firstHeading.textContent || ""
