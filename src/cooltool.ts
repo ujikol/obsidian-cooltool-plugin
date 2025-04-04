@@ -413,18 +413,13 @@ export class CoolTool implements CoolToolInterface {
             const configPath = path.join(os.homedir(), "retain.json")
             const api = new RetainAPI(configPath)
             new Notice("Importing...\nDo not make any changes until the link was inserted below!")
-            const [project, team, allocations] = await api.getProjectDataWithBookingsAsMarkdown(projectID)
-            if (!project) {
+            const properties = await api.getProjectDataWithBookingsAsMarkdown(projectID)
+            if (!properties) {
                 new Notice(`Project not found in Retain: ${projectID}`, 7000)
                 waitModal.close()
                 return
             }
-            let text = project
-            if (team) {
-                text = text + "# Team\n" + team + "-----\n# Team Allocations\n" + allocations
-            }
-            text = "Copy starting with the next line! So skip this line.\n" + text
-            const note = await this.createNoteFromTemplate("Blanco", "Retain " + projectID, {content: text})
+            const note = await this.createNoteFromTemplate("Retain", "Retain " + projectID, properties)
             this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`[[${note!.basename}]]\n`, {line:insertLine, ch:0})
             new Notice("Project imported from Retain.")
         } catch (err) {
@@ -443,11 +438,21 @@ export class CoolTool implements CoolToolInterface {
     // Project Creation =========================
     async createProject(projectID: string, importIt: boolean, parent: boolean) {
         try {
-            this.templateArgs = {}
-            let projectCountry: string | undefined
+            if (importIt) {
+                const configPath = path.join(os.homedir(), "retain.json")
+                const api = new RetainAPI(configPath)
+                new Notice("Importing...");
+                const properties = await api.getProjectDataWithBookingsAsMarkdown(projectID)
+                if (!properties) {
+                    throw `Project not found in Retain: ${projectID}`
+                }
+                this.templateArgs = properties
+            } else
+                this.templateArgs = {}
+            // let projectCountry: string | undefined
             const match = projectID.match(/^([A-Z]{2})[0-9]{6}/)
             if (match) {
-                projectCountry = match[1]
+                // projectCountry = match[1]
                 this.templateArgs["Nessie_ID"] = projectID
             } else {
                 if (!projectID.match(/^[0-9]{10}/))
@@ -463,30 +468,10 @@ export class CoolTool implements CoolToolInterface {
             const templateFile = app.vault.getFileByPath(templatePath)
             if (!templateFile)
                 throw `Template file "${templatePath}" does not exist.`
+            this.templateArgs["projectID"] = projectID
             // const projectPath = CT_PROJECTS_ROOT + "/" + (projectCountry ? projectCountry : "Salesforce") + "/" + projectID
             const projectPath = CT_PROJECTS_ROOT + "/Basic_Projects/" + projectID
-            this.templateArgs["projectID"] = projectID
             this.templateArgs["path"] = projectPath
-            let project: string | undefined
-            let team: string | undefined
-            let allocations: string | undefined
-            if (importIt) {
-                const configPath = path.join(os.homedir(), "retain.json")
-                const api = new RetainAPI(configPath)
-                new Notice("Importing...");
-                [project, team, allocations] = await api.getProjectDataWithBookingsAsMarkdown(projectID)
-                if (!project) {
-                    throw `Project not found in Retain: ${projectID}`
-                }
-                this.templateArgs["properties"] = project
-                this.templateArgs["team"] = team
-                let text = project
-                if (team) {
-                    text = text + "# Team\n" + team + "-----\n# Team Allocations\n" + allocations
-                }
-                this.templateArgs["content"] = text
-                this.templateArgs["retain"] = (await tp.templater.create_new_note_from_template(app.vault.getFileByPath(this.templatesFolder+"/Blanco.md")!, projectPath, "Retain " + projectID, false))!
-            }
             let note: TFile
             if (parent) {
                 const editor = app.workspace.activeEditor!.editor!

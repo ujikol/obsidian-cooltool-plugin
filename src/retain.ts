@@ -79,17 +79,17 @@ export class RetainAPI {
         return (response.result.values as any[]).map(r=>r.RES)
     }
 
-    async getProjectDataWithBookingsAsMarkdown(projectId: string): Promise<[string|undefined, string|undefined, string|undefined]> {
+    async getProjectDataWithBookingsAsMarkdown(projectId: string): Promise<{[id:string]:string|number|null}|undefined> {
         let response = await this.request('/table/JOB/', {"filter": {"table": "JOB", "field": "JOB_CODE", "operator": "=", "value": projectId}}) as any
         let job = response.result.values[0]
         if (!job)
-            return [undefined, undefined, undefined]
+            return undefined
         job = job.JOB as any
         response = await this.request('/table/BKG/',{"filter": {"table": "BKG", "field": "BKG_JOB_ID", "operator": "=", "value": job.JOB_ID}})
             const bookings = (response.result.values as any[]).map(b=>b.BKG).filter(b => b.BKG_DELETED !== 1)
         let resources = []
-        let teamOutput: string | undefined
-        let allocationsOutput: string | undefined
+        let teamOutput: string
+        let allocationsOutput: string | null = null
         let resIDs = [...new Set(bookings.map(b=>b.BKG_RES_ID))]
         resIDs.push(job.JOB_AC_LEAD_RES_ID)
         resIDs.push(job.JOB_EM_LEAD_RES_ID)
@@ -100,38 +100,35 @@ export class RetainAPI {
             allocationsOutput = this.processBookings(bookings, resources)
         }
 
-        // Job output
-        const projectName = job["JOB_DESCR"] || "Unnamed Project"
-        const client = job["JOB_CLT_ID_DESCR"] || "Unknown Client"
-        const budgetPd = job["JOB_BUDGET_TIME"] / 8
-        const pm = resources.find(r => r.RES_ID === job.JOB_EM_LEAD_RES_ID)
-        const pdMap: {[id:number]:string} = {9922:"Web"}
-        const jobOutput = `---
-Nessie_ID: ${job["JOB_CODE"]}
-Salesforce_ID: ${job["JOB_CODESF"]}
-Project_Name: "${projectName}"
-Client: "[[${client}]]"
-PM: '[[${pm.RES_DESCR}|@${pm.RES_USRLOGON}]]'
-Budget_PD: ${budgetPd}
-Avg_PD_Rate: ${job["JOB_BUDGET_REVENUE"] / budgetPd || "N/A"}
-Execution_Start: ${job["JOB_START"]?.slice(0, 10) || "Unknown Start Date"}
-Language: en
-Products:
-  - "${pdMap[job.JOB_PRD_ID] || "Unknown Product"}"
-Project_Folder: "S:\\\\EMEA\\\\Delivery_Auto\\\\${client[0]}\\\\${client}\\\\${job["JOB_CODE"]} ${projectName}"
-Mailbox: 
-aliases:
-  - ${client} - ${projectName}
----
-`
-
         // Team output
         teamOutput = getMarkdownTable({table: {
             head: ["M/C", "Name", "Role", "Email", "DAS_ID"],
             body: resources.map(res => [`[[${res.RES_DESCR}\\|@${res.RES_USRLOGON}]]`, res.RES_DESCR, res.RES_GCM_ID_DESCR, res.RES_EMAIL, res.RES_DASID])
         }})
 
-        return [jobOutput, teamOutput, allocationsOutput]
+        // Project properties
+        const projectName = job["JOB_DESCR"]
+        const client = job["JOB_CLT_ID_DESCR"] || "Unknown Client"
+        const budgetPd = job["JOB_BUDGET_TIME"] / 8
+        const pm = resources.find(r => r.RES_ID === job.JOB_EM_LEAD_RES_ID)
+        const pdMap: {[id:number]:string} = {9922:"Web"}
+        let properties = {
+            "Nessie_ID": job["JOB_CODE"],
+            "Salesforce_ID": job["JOB_CODESF"],
+            "Project_Name": projectName,
+            "Client": client,
+            "PM_MC": pm.RES_USRLOGON,
+            "PM_Name": pm.RES_DESCR,
+            "Budget_PD": `${budgetPd}`,
+            "Avg_PD_Rate": (job["JOB_BUDGET_REVENUE"] || 0) / budgetPd,
+            "Execution_Start": job["JOB_START"]?.slice(0, 10),
+            "Language": "en",
+            // "Products": "", pdMap[job.JOB_PRD_ID],
+            "team": teamOutput,
+            "allocations": allocationsOutput
+        }
+
+        return properties
     }
     
     private groupByAndSum(data: any[], keys: string[], sumField: string) {
