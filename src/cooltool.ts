@@ -46,12 +46,12 @@ export class CoolTool implements CoolToolInterface {
         this.dv.page(path)
         let buf = this.parsingBuffers[path]
         if (!buf) {
-            buf = new ParsingBuffer(this.plugin, this)
+            buf = new ParsingBuffer(this.plugin, this, path)
             this.parsingBuffers[path] = buf
             if (afterInit)
-                buf.init(path).then(() => afterInit(buf))
+                buf.init().then(() => afterInit(buf))
             else
-                buf.init(path)
+                buf.init()
         }
         return buf
     }
@@ -227,7 +227,7 @@ export class CoolTool implements CoolToolInterface {
             return note
         } catch (err) {
 			new Notice("ERROR:\n" + err, 30000)
-			console.log("Error: ", err)
+			console.error(err)
         }
 	}
 
@@ -248,7 +248,7 @@ export class CoolTool implements CoolToolInterface {
     }
 
     tracker(who: string[], what: string, priority: number=0, deadline?: string, scheduled?: string): string {
-        console.log("Tracker:", who, what, priority, deadline, scheduled)
+        console.debug("Tracker:", who, what, priority, deadline, scheduled)
         let prio = ["", " ⏬", " 🔽", " 🔼", " ⏫", " 🔺"][priority]
         const parseDateOption = { forwardDate: true }
         let tasks = ""
@@ -334,10 +334,10 @@ export class CoolTool implements CoolToolInterface {
         return this.dv.page(path).file.path;
     }
 
-    logTrue(...args:any){
-        console.log("CT:", ...args)
-        return true
-    }
+    // logTrue(...args:any){
+    //     console.log("CT:", ...args)
+    //     return true
+    // }
 
 
     // HTML renderer ============================
@@ -381,9 +381,9 @@ export class CoolTool implements CoolToolInterface {
             html.removeChild(firstHeading)
             outlookItem["body"] = html.innerHTML
         } catch (e) {
-            const msg = "ERROR: Cannot create Email.\nIs the branch structure correct?\n" + e
-            console.log(msg)
-            new Notice(msg)
+            const msg = "Cannot create Email.\nIs the branch structure correct?\n" + e
+            console.error(msg)
+            new Notice("ERROR: " + msg)
             return null
         }
 
@@ -432,7 +432,7 @@ export class CoolTool implements CoolToolInterface {
                 // console.log(err) // includes credentials
             } else {
                 new Notice("ERROR:\n" + err)
-                console.log("ERROR:", err)
+                console.error(err)
             }
         }
         waitModal.close()
@@ -488,7 +488,7 @@ export class CoolTool implements CoolToolInterface {
             tp.templater.create_new_note_from_template(app.vault.getFileByPath(this.templatesFolder+"/Tasks Tracking.md")!, projectPath, "Tasks Tracking " + projectID, false)
             // return note
         } catch (err) {
-            console.log(err)
+            console.error(err)
             new Notice("ERROR:\n" + err)
         }
     }

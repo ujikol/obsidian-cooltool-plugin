@@ -11,7 +11,7 @@ export async function curlRequest (args: string, debug = false): Promise<[boolea
     return new Promise((resolve, reject) => {
         const cmd = "curl " + (debug ? "-i -v " : "-s ") + '-A "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/77.0" ' + args
         if (debug)
-            console.log("COMMAND:", cmd)
+            console.debug("COMMAND:", cmd)
         require("child_process").exec(cmd, { shell: true, detached: true, maxBuffer: 100*1024*1024}, (error: any, stdout: string, stderr: string) => {
             if (error) {
                 reject(`Error: ${error.message}`);
@@ -33,6 +33,6 @@ export async function curlGetRequest(url: string, params?: string[], ntlmCredent
         debug
     ))
     if (debug)
-        console.log("SUCCESS & RESPONSE:", response)
+        console.debug("SUCCESS & RESPONSE:", response)
     return response[1]
 }

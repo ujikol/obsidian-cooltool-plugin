@@ -28,8 +28,7 @@ export async function msteamsSetupTeam(team: MsTeamsTeam): Promise<[boolean, str
     const id = match ? match[1] : null
     success = success && output.contains(MsTeamsUpdateSuccessMessage)
     if (!success) {
-        console.log("MsTeams Error:\n" + output)
-        console.log("Failed Code:\n", code)
+        console.error("MsTeams Error:\n" + output + "\nFailed Code:\n", code)
     }
     return [success, id, output]
 }

@@ -13,25 +13,29 @@ export class ParsingBuffer {
 	sections: SectionCache[]
 	text: string
 	ct: CoolTool
+    path: string
 
-	constructor(plugin: CoolToolPlugin, ct: CoolTool) {
+	constructor(plugin: CoolToolPlugin, ct: CoolTool, path: string) {
 		this.plugin = plugin
 		this.ct = ct
+        this.path = path
     }
 
-    async init(path: string) {
+    async init() {
 		const app = this.plugin.app
-        const file = app.vault.getFileByPath(path)!
+        const file = app.vault.getFileByPath(this.path)!
         const cache = app.metadataCache.getFileCache(file)!
         // const cache = app.metadataCache.metadataCache[app.metadataCache.fileCache[path].hash]
-		this.text = path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
+		this.text = this.path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
 		this.sections = cache.sections!
 		this.headings = cache.headings!
 	}
 
 	getStakeholders(heading: string): DataArray<string> {
-        if (!this.headings)
-            new Notice("ATTENTION:\nNot all placeholders replace correctly.\nYou need to refresh!")
+        if (!this.headings) {
+            new Notice("ATTENTION:\nNot all placeholders replace correctly for:\n${this.path}\nYou need to refresh!")
+            console.warn("ParsingBuffer not initialized for: ${this.path}")
+        }
         const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)
             return this.ct.dv.array([])
