@@ -6,9 +6,9 @@ import { ParsingBuffer } from "../src/parsing-buffer"
 import { renderBranch} from "../src/render"
 import { executePowerShellCommand, pssavpar} from "../src/powershell"
 import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache} from 'obsidian'
-import { getAPI, DataviewApi, Link, DataArray } from "obsidian-dataview"
+import { getAPI, DataviewApi, Link, DataArray, PageMetadata } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
-import { getMarkdownTable } from "markdown-table-ts"
+import { getMarkdownTable, Align } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
 import { RetainAPI } from "./retain"
 const path = require('path')
@@ -521,6 +521,172 @@ export class CoolTool implements CoolToolInterface {
         }
         new Notice(`Imported ${resources.length} people.`)
     }
+
+
+    // dataviewjs functions ================
+
+    revenue(dv: any, pages: PageMetadata[], group: string | null): void {
+        let allProjectsData: any[] = [];
+        let monthlyRevenueTotals: { [monthKey: string]: number } = {};
+        let monthlyPDTotals: { [monthKey: string]: number } = {};
+        let allMonths = new Set<string>();
+        let totalBudgetPD = 0;
+
+        for (const page of pages) {
+            const start = page.Execution_Start;
+            const end = page.Execution_End;
+            const budget = page.Budget_PD;
+            const rate = page.Avg_PD_Rate;
+
+            const totalProjectRevenue = (budget ?? 0) * (rate ?? 0); // Use nullish coalescing for safety
+
+            if (totalProjectRevenue <= 0)
+                continue;
+            
+            totalBudgetPD += (budget ?? 0);
+
+            let workingDaysInRange = 0;
+            let currentDay = start;
+
+            // Calculate working days within the project duration
+            while (currentDay && end && currentDay <= end) {
+                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
+                    workingDaysInRange++;
+                }
+                currentDay = currentDay.plus({ days: 1 });
+            }
+
+            // Skip if no working days found in the duration
+            if (workingDaysInRange <= 0) {
+                // Refund the budget that was added before the check
+                totalBudgetPD -= (budget ?? 0);
+                continue;
+            }
+
+            const dailyWorkingRevenue = totalProjectRevenue / workingDaysInRange;
+            const dailyWorkingPD = (budget ?? 0) / workingDaysInRange;
+
+            const projectMonthlyRevenueBreakdown: { [monthKey: string]: number } = {};
+            currentDay = start; // Reset currentDay for the monthly breakdown calculation
+
+            // Calculate monthly breakdown of revenue and PDs
+            while (currentDay && end && currentDay <= end) {
+                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
+                    const monthKey = currentDay.toFormat('yyyy-MM');
+
+                    allMonths.add(monthKey);
+
+                    projectMonthlyRevenueBreakdown[monthKey] = (projectMonthlyRevenueBreakdown[monthKey] || 0) + dailyWorkingRevenue;
+
+                    monthlyRevenueTotals[monthKey] = (monthlyRevenueTotals[monthKey] || 0) + dailyWorkingRevenue;
+
+                    monthlyPDTotals[monthKey] = (monthlyPDTotals[monthKey] || 0) + dailyWorkingPD;
+                }
+                currentDay = currentDay.plus({ days: 1 });
+            }
+
+            allProjectsData.push({
+                name: page.file.link,
+                monthlyBreakdown: projectMonthlyRevenueBreakdown,
+                total: totalProjectRevenue,
+                groupValue: group ? page[group] : null // Get the value for the specified group key
+            });
+        }
+
+        const sortedMonths = Array.from(allMonths).sort();
+
+        // Build table headers
+        const headers: (string | any)[] = [(group ? group : "Project"), ...sortedMonths.map(monthKey => dv.date(monthKey).toFormat('MMM')), "Total"];
+
+        // Build PD Totals row
+        const pdTotalsRow: (string | number)[] = ["**PD Total**"];
+        for (const monthKey of sortedMonths) {
+            const monthPDTotal = monthlyPDTotals[monthKey] || 0;
+            pdTotalsRow.push(`**${monthPDTotal.toFixed(2)}**`);
+        }
+        pdTotalsRow.push(`**${totalBudgetPD.toFixed(2)}**`);
+
+        // Build Revenue Totals row and calculate grand total
+        const revenueTotalsRow: (string | number)[] = ["**Revenue Total**"];
+        let grandTotalRevenue = 0;
+        for (const monthKey of sortedMonths) {
+            const monthRevenueTotal = monthlyRevenueTotals[monthKey] || 0;
+            revenueTotalsRow.push(`**${monthRevenueTotal.toFixed(2)}**`);
+            grandTotalRevenue += monthRevenueTotal;
+        }
+        revenueTotalsRow.push(`**${grandTotalRevenue.toFixed(2)}**`);
+
+        let itemRows: (string | any)[][] = [];
+
+        if (group) {
+            // Group data by the specified field
+            const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, total: number } } = {};
+
+            for (const project of allProjectsData) {
+                let key = project.groupValue !== undefined && project.groupValue !== null && project.groupValue !== '' ? project.groupValue : 'Unspecified';
+                if (key.toString().trim() === '') { // Handle empty strings for group key
+                    key = 'Unspecified';
+                }
+
+                if (!groupedData[key]) {
+                    groupedData[key] = {
+                        monthlyBreakdown: {},
+                        total: 0
+                    };
+                }
+
+                for (const month in project.monthlyBreakdown) {
+                    if (!groupedData[key].monthlyBreakdown[month]) {
+                        groupedData[key].monthlyBreakdown[month] = 0;
+                    }
+                    groupedData[key].monthlyBreakdown[month] += project.monthlyBreakdown[month];
+                }
+                groupedData[key].total += project.total;
+            }
+
+            // Create table rows for grouped data
+            itemRows = Object.keys(groupedData).sort((a, b) => String(a).localeCompare(String(b))).map(groupKey => {
+                const row: (string | number | any)[] = [groupKey]; // groupKey might not be a string, e.g., Link
+                const groupData = groupedData[groupKey];
+                for (const monthKey of sortedMonths) {
+                    const monthlyAmount = groupData.monthlyBreakdown[monthKey] || 0;
+                    row.push(monthlyAmount.toFixed(2));
+                }
+                row.push(groupData.total.toFixed(2));
+                return row;
+            });
+
+        } else {
+            // Create table rows for individual projects
+            itemRows = allProjectsData.map(project => {
+                const row: (string | number | any)[] = [project.name]; // project.name is a Dataview Link
+                for (const monthKey of sortedMonths) {
+                    const monthlyAmount = project.monthlyBreakdown[monthKey] || 0;
+                    row.push(monthlyAmount.toFixed(2));
+                }
+                row.push(project.total.toFixed(2));
+                return row;
+            });
+        }
+
+        const tableRows = [pdTotalsRow, revenueTotalsRow, ...itemRows];
+
+        if (allProjectsData.length > 0) {
+            // dv.table(headers, tableRows);
+            const alignment: Align[] = [Align.Left, ...Array(sortedMonths.length + 1).fill(Align.Right)];
+            const markdownTable = getMarkdownTable({
+                table: {
+                    head: headers,
+                    body: tableRows.map(row => row.map(cell => String(cell).replace(/\|/g, "\\|"))),
+                },
+                alignment: alignment,
+            });
+            dv.paragraph(markdownTable);
+        } else {
+            dv.paragraph("No projects found with valid revenue or budget data in this folder with working days in their duration (after filtering).");
+        }
+    }
+
 }
 
 
