@@ -5,7 +5,7 @@ import { WaitModal, convertHtmlToRtf } from "../src/util"
 import { ParsingBuffer } from "../src/parsing-buffer"
 import { renderBranch} from "../src/render"
 import { executePowerShellCommand, pssavpar} from "../src/powershell"
-import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache} from 'obsidian'
+import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache, parseLinktext} from 'obsidian'
 import { getAPI, DataviewApi, Link, DataArray, PageMetadata } from "obsidian-dataview"
 import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable, Align } from "markdown-table-ts"
@@ -806,7 +806,20 @@ export class CoolTool implements CoolToolInterface {
         const { items, filteredSortedMonths } = result
 
         const seriesData = items.map(item => {
-            return `\n - title: ${typeof item.id === 'object' && item.id.display ? item.id.display : path.basename(item.id.path).split('.')[0]}\n - data: [${filteredSortedMonths.map((monthKey: string) => item.monthlyBreakdown[monthKey] || 0).join(", ")}]`
+            let title: string
+            if (typeof item.id === 'object')
+                if (item.id.display)
+                    title = item.id.display
+                else
+                    title = path.basename(item.id.path).split('.')[0]
+            else {
+                const matches = item.id.match(/\[\[.+\|(.+)\]\]/)
+                if (matches)
+                    title = matches[1]
+                else
+                    title = item.id
+            }
+            return `\n - title: ${title}\n - data: [${filteredSortedMonths.map((monthKey: string) => item.monthlyBreakdown[monthKey] || 0).join(", ")}]`
         }).join("")
 
         const code = `
