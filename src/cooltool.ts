@@ -11,6 +11,7 @@ import { intersection, escapeRegExp } from "es-toolkit"
 import { getMarkdownTable, Align } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
 import { RetainAPI } from "./retain"
+import { all } from "axios"
 const path = require('path')
 const os = require('os')
 
@@ -445,7 +446,7 @@ export class CoolTool implements CoolToolInterface {
             if (importIt) {
                 const configPath = path.join(os.homedir(), "retain.json")
                 const api = new RetainAPI(configPath)
-                new Notice("Importing...");
+                new Notice("Importing...")
                 const properties = await api.getProjectDataWithBookingsAsMarkdown(projectID)
                 if (!properties) {
                     throw `Project not found in Retain: ${projectID}`
@@ -525,6 +526,102 @@ export class CoolTool implements CoolToolInterface {
 
     // dataviewjs functions ================
 
+
+    /**
+     * Calculates revenue and PDs by month for a list of projects.
+     *
+     * @param dv The Dataview API object.
+     * @param pages An array of PageMetadata objects, each representing a project.
+     * @param group An optional string key to group projects by (e.g., 'Client').
+     * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
+     * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
+     */
+    getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): {allProjectsData:any[], filteredSortedMonths:string[], monthlyPDTotals:{ [monthKey: string]: number }, monthlyRevenueTotals:{ [monthKey: string]: number }} | string {
+
+        const startDateString = from_date ?? '2000-01-01'
+        const endDateString = to_date ?? '2099-12-31'
+        const startDateFilter = dv.date(startDateString)
+        const endDateFilter = dv.date(endDateString)
+        if (!startDateFilter || !endDateFilter) {
+            return `Error parsing date filters. Please ensure from_date ('${from_date}') and to_date ('${to_date}') are in-MM-DD format.`
+        }
+    
+        let allProjectsData: any[] = []
+        let monthlyRevenueTotals: { [monthKey: string]: number } = {}
+        let monthlyPDTotals: { [monthKey: string]: number } = {}
+        let allMonths = new Set<string>()
+    
+        for (const page of pages) {
+            const start = page.Execution_Start
+            const end = page.Execution_End
+            const budget = page.Budget_PD
+            const rate = page.Avg_PD_Rate
+    
+            if (!(start && end && start.isValid && end.isValid && start <= end && typeof budget === 'number' && typeof rate === 'number')) {
+                const text = `Invalid project data for ${page.file.link}. Ensure Execution_Start, Execution_End, Budget_PD, and Avg_PD_Rate are valid.`
+                new Notice(text)
+                console.warn(text)
+                continue
+            }
+    
+            const totalProjectRevenue = budget * rate
+            let workingDaysInRange = 0
+            let currentDay = start
+    
+            // Calculate working days within the project duration (start to end)
+            while (currentDay && end && currentDay <= end) {
+                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
+                    workingDaysInRange++
+                }
+                currentDay = currentDay.plus({ days: 1 })
+            }
+    
+            const dailyWorkingRevenue = totalProjectRevenue / workingDaysInRange
+            const dailyWorkingPD = budget / workingDaysInRange
+
+            const projectMonthlyBreakdown: { [monthKey: string]: number } = {}
+            currentDay = start
+    
+            // Calculate monthly breakdown of revenue and PDs for the project's full duration
+            while (currentDay && end && currentDay <= end) {
+                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
+                    const monthKey = currentDay.toFormat('yyyy-MM')
+                    projectMonthlyBreakdown[monthKey] = (projectMonthlyBreakdown[monthKey] || 0) + dailyWorkingRevenue
+                    monthlyRevenueTotals[monthKey] = (monthlyRevenueTotals[monthKey] || 0) + dailyWorkingRevenue
+                    monthlyPDTotals[monthKey] = (monthlyPDTotals[monthKey] || 0) + dailyWorkingPD
+                    allMonths.add(monthKey)
+                }
+                currentDay = currentDay.plus({ days: 1 })
+            }
+    
+            allProjectsData.push({
+                name: page.file.link,
+                monthlyBreakdown: projectMonthlyBreakdown,
+                total: totalProjectRevenue,
+                groupValue: group ? page[group] : null
+            })
+        }
+    
+        const sortedMonths = Array.from(allMonths).sort()
+    
+        // Filter the sorted months to only include those within the startDateFilter/endDateFilter range for display
+        const filteredSortedMonths = sortedMonths.filter(monthKey => {
+            const monthStart = dv.date(monthKey)
+            const monthEnd = monthStart.endOf('month')
+            return monthEnd >= startDateFilter && monthStart <= endDateFilter
+        })
+    
+        // If no months fall within the reporting range, display a message
+        if (filteredSortedMonths.length === 0) {
+            // Check if there were projects initially but just no months in the range
+            if (allProjectsData.length > 0)
+                return `No months between ${startDateFilter.toFormat('yyyy-MM')} and ${endDateFilter.toFormat('yyyy-MM')} contain working days from the selected projects.`
+            else
+                return `No projects found with valid revenue or budget data with execution dates between ${startDateFilter.toFormat('yyyy-MM-dd')} and ${endDateFilter.toFormat('yyyy-MM-dd')}.`
+        }
+        return {allProjectsData, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals}
+    }
+
     /**
      * Calculates and displays revenue and PDs by month for a list of projects,
      * optionally grouped, and filtered by an execution date range.
@@ -535,206 +632,63 @@ export class CoolTool implements CoolToolInterface {
      * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
      * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
      */
-    revenue(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
-    
-        // Determine the date strings to use, applying defaults if optional arguments are missing or null
-        const startDateString = from_date ?? '2000-01-01';
-        const endDateString = to_date ?? '2099-12-31';
-    
-        // Convert the string dates to Dataview date objects for comparison and manipulation
-        // We assume dv.date() can parse 'YYYY-MM-DD' format correctly.
-        const startDateFilter = dv.date(startDateString);
-        const endDateFilter = dv.date(endDateString);
-    
-        // Basic validation: Check if the dates were parsed successfully.
-        // dv.date() might return null or an invalid date object if the format is wrong.
-        if (!startDateFilter || !endDateFilter) {
-            dv.paragraph(`Error parsing date filters. Please ensure from_date ('${from_date}') and to_date ('${to_date}') are in-MM-DD format.`);
-            return; // Exit if dates are invalid
-        }
-    
-        let allProjectsData: any[] = [];
-        let monthlyRevenueTotals: { [monthKey: string]: number } = {};
-        let monthlyPDTotals: { [monthKey: string]: number } = {};
-        let allMonths = new Set<string>(); // Collect all months from valid projects
-        // totalBudgetPD was used for a sum of full project budgets, which we are no longer displaying directly in totals.
-        // We'll calculate displayed PD total separately.
-        // let totalBudgetPD = 0;
-    
-    
-        // Filter pages based on the execution date range specified by the filters
-        const filteredPages = pages.filter(page => {
-            const start = page.Execution_Start;
-            const end = page.Execution_End;
-    
-            // If no start or end date, the project cannot be accurately placed in time, skip it.
-            // You might adjust this logic based on how you want to handle projects without dates.
-            if (!start || !end) {
-                 return false;
-            }
-    
-            // Keep the project if its execution range overlaps with the filter range
-            // Overlap exists if (Project_End >= startDateFilter AND Project_Start <= endDateFilter)
-            return end >= startDateFilter && start <= endDateFilter;
-        });
-    
-        if (filteredPages.length === 0) {
-             dv.paragraph(`No projects found with valid revenue or budget data with execution dates between ${startDateFilter.toFormat('yyyy-MM-dd')} and ${endDateFilter.toFormat('yyyy-MM-dd')}.`);
-             return; // Exit early if no projects match the date filter
-        }
-    
-        for (const page of filteredPages) {
-            const start = page.Execution_Start;
-            const end = page.Execution_End;
-            const budget = page.Budget_PD;
-            const rate = page.Avg_PD_Rate;
-    
-            // Defensive check (should be covered by initial filter, but good practice)
-            if (!start || !end) {
-                continue;
-            }
-    
-            const totalProjectRevenue = (budget ?? 0) * (rate ?? 0); // Use nullish coalescing for safety
-    
-            // Skip if project has no calculated revenue (rate or budget is zero/null)
-            if (totalProjectRevenue <= 0)
-                continue;
-    
-            // We don't need totalBudgetPD summed here anymore as we sum displayed monthly PDs
-            // totalBudgetPD += (budget ?? 0);
-    
-            let workingDaysInRange = 0;
-            let currentDay = start;
-    
-            // Calculate working days within the project duration (start to end)
-            while (currentDay && end && currentDay <= end) {
-                // Assume weekday is 1-5 for Mon-Fri
-                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
-                    workingDaysInRange++;
-                }
-                currentDay = currentDay.plus({ days: 1 });
-            }
-    
-            // Skip if no working days found in the project duration
-            if (workingDaysInRange <= 0) {
-                // No need to refund budget PD if we aren't summing it here
-                // totalBudgetPD -= (budget ?? 0);
-                continue;
-            }
-    
-            const dailyWorkingRevenue = totalProjectRevenue / workingDaysInRange;
-            const dailyWorkingPD = (budget ?? 0) / workingDaysInRange; // Daily PD based on total budget
-    
-            const projectMonthlyBreakdown: { [monthKey: string]: number } = {};
-            currentDay = start; // Reset currentDay for the monthly breakdown calculation
-    
-            // Calculate monthly breakdown of revenue and PDs for the project's full duration
-            while (currentDay && end && currentDay <= end) {
-                // Assume weekday is 1-5 for Mon-Fri
-                if (currentDay.weekday >= 1 && currentDay.weekday <= 5) {
-                    const monthKey = currentDay.toFormat('yyyy-MM');
-    
-                    // Accumulate for project's breakdown
-                    projectMonthlyBreakdown[monthKey] = (projectMonthlyBreakdown[monthKey] || 0) + dailyWorkingRevenue;
-    
-                    // Accumulate for overall monthly totals
-                    monthlyRevenueTotals[monthKey] = (monthlyRevenueTotals[monthKey] || 0) + dailyWorkingRevenue;
-                    monthlyPDTotals[monthKey] = (monthlyPDTotals[monthKey] || 0) + dailyWorkingPD;
-    
-                    // Add the month to the set of all months *from included projects*
-                    allMonths.add(monthKey);
-                }
-                currentDay = currentDay.plus({ days: 1 });
-            }
-    
-            allProjectsData.push({
-                name: page.file.link, // Use Dataview Link
-                monthlyBreakdown: projectMonthlyBreakdown,
-                total: totalProjectRevenue, // Total revenue for the project's full duration (needed for calculating displayed total)
-                groupValue: group ? page[group] : null // Get the value for the specified group key
-            });
-        }
-    
-        // Sort all collected months
-        const sortedMonths = Array.from(allMonths).sort();
-    
-        // Filter the sorted months to only include those within the startDateFilter/endDateFilter range for display
-        const filteredSortedMonths = sortedMonths.filter(monthKey => {
-            const monthStart = dv.date(monthKey);
-            const monthEnd = monthStart.endOf('month'); // Get the end of the month
-    
-            // Keep the month key if the month range overlaps with the filter date range
-            // Overlap exists if (Month_End >= startDateFilter AND Month_Start <= endDateFilter)
-            return monthEnd >= startDateFilter && monthStart <= endDateFilter;
-        });
-    
-        // If no months fall within the reporting range, display a message
-        if (filteredSortedMonths.length === 0) {
-             // Check if there were projects initially but just no months in the range
-             if (filteredPages.length > 0) {
-                 dv.paragraph(`No months between ${startDateFilter.toFormat('yyyy-MM')} and ${endDateFilter.toFormat('yyyy-MM')} contain working days from the selected projects.`);
-             } else {
-                  // This case should ideally be caught by the initial filteredPages check,
-                  // but keeping it as a fallback/clearer message path.
-                  dv.paragraph(`No projects found with valid revenue or budget data with execution dates between ${startDateFilter.toFormat('yyyy-MM-dd')} and ${endDateFilter.toFormat('yyyy-MM-dd')}.`);
-             }
-             return;
-        }
-    
-        // Build table headers with "Total" column after the first column
+    monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+
+        const result = this.getMonthlyRevenue(dv, pages, group, from_date, to_date);
+        if (typeof result === 'string')
+            return dv.paragraph(result) // Error message
+        const { allProjectsData, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals } = result;
+
         const headers: (string | any)[] = [
             (group ? group : "Project"),
-            "Total", // Total column header
-            ...filteredSortedMonths.map(monthKey => dv.date(monthKey).toFormat('MMM yy')) // Month headers
-        ];
+            "Total",
+            ...filteredSortedMonths.map(monthKey => dv.date(monthKey).toFormat('MMM yy'))
+        ]
     
         // Build PD Totals row
-        const pdTotalsRow: (string | number)[] = ["**PD Total**"];
-        let grandTotalPDDisplayed = 0; // Calculate total PD for the displayed months
-        // Calculate grand total PD for displayed months first
+        const pdTotalsRow: (string | number)[] = ["**PD Total**"]
+        let grandTotalPDDisplayed = 0
         for (const monthKey of filteredSortedMonths) {
-            grandTotalPDDisplayed += monthlyPDTotals[monthKey] || 0;
+            grandTotalPDDisplayed += monthlyPDTotals[monthKey] || 0
         }
-        // Add the grand total PD after the first column header
-        pdTotalsRow.push(`**${grandTotalPDDisplayed.toFixed(2)}**`);
-        // Then add the monthly PD totals
+        pdTotalsRow.push(`**${grandTotalPDDisplayed.toFixed(2)}**`)
         for (const monthKey of filteredSortedMonths) {
-            const monthPDTotal = monthlyPDTotals[monthKey] || 0;
-            pdTotalsRow.push(`**${monthPDTotal.toFixed(2)}**`);
+            const monthPDTotal = monthlyPDTotals[monthKey] || 0
+            pdTotalsRow.push(`**${monthPDTotal.toFixed(2)}**`)
         }
     
     
         // Build Revenue Totals row and calculate grand total for the filtered months
-        const revenueTotalsRow: (string | number)[] = ["**Revenue Total**"];
-        let grandTotalRevenueDisplayed = 0;
+        const revenueTotalsRow: (string | number)[] = ["**Revenue Total**"]
+        let grandTotalRevenueDisplayed = 0
         // Calculate grand total Revenue for displayed months first
         for (const monthKey of filteredSortedMonths) {
-            grandTotalRevenueDisplayed += monthlyRevenueTotals[monthKey] || 0;
+            grandTotalRevenueDisplayed += monthlyRevenueTotals[monthKey] || 0
         }
         // Add the grand total Revenue after the first column header
-        revenueTotalsRow.push(`**${grandTotalRevenueDisplayed.toFixed(2)}**`);
+        revenueTotalsRow.push(`**${grandTotalRevenueDisplayed.toFixed(2)}**`)
         // Then add the monthly Revenue totals
         for (const monthKey of filteredSortedMonths) {
-            const monthRevenueTotal = monthlyRevenueTotals[monthKey] || 0;
-            revenueTotalsRow.push(`**${monthRevenueTotal.toFixed(2)}**`);
+            const monthRevenueTotal = monthlyRevenueTotals[monthKey] || 0
+            revenueTotalsRow.push(`**${monthRevenueTotal.toFixed(2)}**`)
         }
     
-        let itemRows: (string | any)[][] = [];
+        let itemRows: (string | any)[][] = []
     
         if (group) {
             // Group data by the specified field
-            const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, totalDisplayed: number } } = {};
+            const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, totalDisplayed: number } } = {}
     
             for (const project of allProjectsData) {
                  // Use a default key if the group value is null, undefined, or empty string
-                let key = project.groupValue;
+                let key = project.groupValue
                  if (key === undefined || key === null || (typeof key === 'string' && key.trim() === '')) {
-                     key = 'Unspecified';
+                     key = 'Unspecified'
                  } else if (typeof key === 'object' && key.display) {
                      // Handle Dataview Link or similar objects that have a display property
-                     key = key.display;
+                     key = key.display
                  } else {
-                     key = String(key); // Ensure key is a string for object property access
+                     key = String(key) // Ensure key is a string for object property access
                  }
     
     
@@ -742,20 +696,20 @@ export class CoolTool implements CoolToolInterface {
                     groupedData[key] = {
                         monthlyBreakdown: {},
                         totalDisplayed: 0 // This will store the sum of displayed monthly totals for the group
-                    };
+                    }
                 }
     
                 for (const month in project.monthlyBreakdown) {
                      // Only add monthly breakdown data for months that will be displayed
                      if (filteredSortedMonths.includes(month)) {
                         if (!groupedData[key].monthlyBreakdown[month]) {
-                            groupedData[key].monthlyBreakdown[month] = 0;
+                            groupedData[key].monthlyBreakdown[month] = 0
                         }
                         // Sum monthly revenue for the group
-                        const monthlyAmount = project.monthlyBreakdown[month];
-                        groupedData[key].monthlyBreakdown[month] += monthlyAmount;
+                        const monthlyAmount = project.monthlyBreakdown[month]
+                        groupedData[key].monthlyBreakdown[month] += monthlyAmount
                         // Also add to the displayed total for the group
-                        groupedData[key].totalDisplayed += monthlyAmount;
+                        groupedData[key].totalDisplayed += monthlyAmount
                      }
                 }
                  // The totalDisplayed for the group is already calculated in the loop above
@@ -763,61 +717,88 @@ export class CoolTool implements CoolToolInterface {
     
             // Create table rows for grouped data
             itemRows = Object.keys(groupedData).sort((a, b) => String(a).localeCompare(String(b))).map(groupKey => {
-                const row: (string | number | any)[] = [groupKey];
-                const groupData = groupedData[groupKey];
+                const row: (string | number | any)[] = [groupKey]
+                const groupData = groupedData[groupKey]
     
                 // Add the calculated group total for displayed months after the first column
-                row.push(groupData.totalDisplayed.toFixed(2));
+                row.push(groupData.totalDisplayed.toFixed(2))
     
                 // Then add the monthly amounts for the filtered months
                 for (const monthKey of filteredSortedMonths) {
                     // Get the aggregated monthly amount for this group for the filtered month
-                    const monthlyAmount = groupData.monthlyBreakdown[monthKey] || 0;
-                    row.push(monthlyAmount.toFixed(2));
+                    const monthlyAmount = groupData.monthlyBreakdown[monthKey] || 0
+                    row.push(monthlyAmount.toFixed(2))
                 }
-                return row;
-            });
+                return row
+            })
     
         } else {
             // Create table rows for individual projects
             itemRows = allProjectsData
                 .sort((a, b) => String(a.name.display || a.name).localeCompare(String(b.name.display || b.name))) // Sort projects by name
                 .map(project => {
-                const row: (string | number | any)[] = [project.name]; // project.name is a Dataview Link
-                let projectTotalRevenueDisplayed = 0; // Calculate total for displayed months for the project
+                const row: (string | number | any)[] = [project.name] // project.name is a Dataview Link
+                let projectTotalRevenueDisplayed = 0 // Calculate total for displayed months for the project
     
                 // Calculate total for displayed months first
                 for (const monthKey of filteredSortedMonths) {
-                     projectTotalRevenueDisplayed += project.monthlyBreakdown[monthKey] || 0;
+                     projectTotalRevenueDisplayed += project.monthlyBreakdown[monthKey] || 0
                 }
     
                 // Add the calculated project total for displayed months after the first column
-                row.push(projectTotalRevenueDisplayed.toFixed(2));
+                row.push(projectTotalRevenueDisplayed.toFixed(2))
     
                 // Then add the monthly amounts for the filtered months
                 for (const monthKey of filteredSortedMonths) {
-                    const monthlyAmount = project.monthlyBreakdown[monthKey] || 0;
-                    row.push(monthlyAmount.toFixed(2));
+                    const monthlyAmount = project.monthlyBreakdown[monthKey] || 0
+                    row.push(monthlyAmount.toFixed(2))
                 }
-                return row;
-            });
+                return row
+            })
         }
     
         // Combine the total rows and item rows
-        const tableRows = [pdTotalsRow, revenueTotalsRow, ...itemRows];
+        const tableRows = [pdTotalsRow, revenueTotalsRow, ...itemRows]
     
         // Generate and display the markdown table
         // Alignment should match the new column order: header (Left), Total (Right), followed by months (Right)
-        const alignment: Align[] = [Align.Left, Align.Right, ...Array(filteredSortedMonths.length).fill(Align.Right)];
+        const alignment: Align[] = [Align.Left, Align.Right, ...Array(filteredSortedMonths.length).fill(Align.Right)]
         const markdownTable = getMarkdownTable({
             table: {
                 head: headers,
                 body: tableRows.map(row => row.map(cell => String(cell).replace(/\|/g, "\\|"))), // Escape pipe characters
             },
             alignment: alignment,
-        });
-        dv.paragraph(markdownTable);
-    
+        })
+        dv.paragraph(markdownTable)
+    }
+
+    /**
+     * Calculates and plot revenue and PDs by month for a list of projects,
+     * optionally grouped, and filtered by an execution date range.
+     *
+     * @param dv The Dataview API object.
+     * @param pages An array of PageMetadata objects, each representing a project.
+     * @param group An optional string key to group projects by (e.g., 'Client').
+     * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
+     * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
+     */
+    monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+
+        const result = this.getMonthlyRevenue(dv, pages, group, from_date, to_date);
+        if (typeof result === 'string')
+            return dv.paragraph(result) // Error message
+        const { allProjectsData, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals } = result;
+
+        const code = `
+type: bar
+labels: [${filteredSortedMonths.join(", ")}]
+series: ${allProjectsData.map((project: any) => `\n - title: ${project.name}\n - data: [${filteredSortedMonths.map((monthKey: string) => project.monthlyBreakdown[monthKey] || 0).join(", ")}]`).join("\n")}
+stacked: true
+yMin: 0
+`
+        console.log(code)
+        dv.paragraph("```chart" + code + "```")
     }
 
 }
@@ -916,8 +897,8 @@ export async function updateProperties(file: TFile, delay: number = 0) {
                 resolve()
             }
             timeoutId = null
-        }, delay);
-    });
+        }, delay)
+    })
 }
 
 async function actuallyUpdateProperties(file: TFile) {
