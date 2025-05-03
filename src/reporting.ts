@@ -367,7 +367,7 @@ export function monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: str
 
     const labels = filteredSortedMonths.map(monthKey => dv.date(monthKey).toFormat('MMM yy'));
 
-    const datasets = items.reverse().map(item => {
+    const datasets = items.map(item => {
         let title: string
         if (typeof item.id === 'object')
             if (item.id.display)
