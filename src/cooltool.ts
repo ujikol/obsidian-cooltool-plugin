@@ -526,11 +526,11 @@ export class CoolTool implements CoolToolInterface {
 
     // reporting functions ======================
 
-    monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+    monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
         monthlyRevenuesTable(dv, pages, group, from_date, to_date)
     }
 
-    monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+    monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
         monthlyRevenuesChart(dv, pages, group, from_date, to_date)
     }
 

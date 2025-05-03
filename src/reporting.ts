@@ -14,20 +14,19 @@ Chart.register(...registerables);
  *
  * @param dv The Dataview API object.
  * @param pages An array of PageMetadata objects, each representing a project.
- * @param group An optional string key to group projects by (e.g., 'Client').
+ * @param group An optional string key to group projects by (e.g., 'Client') or a function that takes a PageMetadata object and returns the group key.
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
  */
-export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): {
+export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => any) | null, from_date?: string | null, to_date?: string | null): {
         items: {
-            id: string | any;
-            monthlyBreakdown: { [monthKey: string]: number };
-            totalDisplayed: number;
+            id: string | any
+            monthlyBreakdown: { [monthKey: string]: number }
+            totalDisplayed: number
         }[];
-        isGrouped: boolean;
         filteredSortedMonths: string[];
-        monthlyPDTotals: { [monthKey: string]: number };
-        monthlyRevenueTotals: { [monthKey: string]: number };
+        monthlyPDTotals: { [monthKey: string]: number }
+        monthlyRevenueTotals: { [monthKey: string]: number }
     } | string {
 
     const startDateString = from_date ?? '2000-01-01'
@@ -40,7 +39,7 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
 
     let allProjectsMonthlyData: {
         name: any;
-        monthlyBreakdown: { [monthKey: string]: number };
+        monthlyBreakdown: { [monthKey: string]: number }
         total: number;
         groupValue: any;
     }[] = []
@@ -75,10 +74,10 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
 
         if (workingDaysInRange === 0) {
             // Avoid division by zero if a project has no working days in its range (e.g., weekend-only project)
-                const text = `Project ${page.file.link} has no working days between ${start.toFormat('yyyy-MM-dd')} and ${end.toFormat('yyyy-MM-dd')}. Skipping.`
-                new Notice(text)
-                console.warn(text)
-                continue;
+            const text = `Project ${page.file.link} has no working days between ${start.toFormat('yyyy-MM-dd')} and ${end.toFormat('yyyy-MM-dd')}. Skipping.`
+            new Notice(text)
+            console.warn(text)
+            continue;
         }
 
         const dailyWorkingRevenue = totalProjectRevenue / workingDaysInRange
@@ -99,11 +98,21 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
             currentDay = currentDay.plus({ days: 1 })
         }
 
+        let pageGroupValue: any = null;
+        if (typeof group === 'string') {
+            pageGroupValue = page[group];
+        } else if (typeof group === 'function') {
+            pageGroupValue = group(page);
+        } else {
+            pageGroupValue = null;
+        }
+
+
         allProjectsMonthlyData.push({
             name: page.file.link,
             monthlyBreakdown: projectMonthlyBreakdown,
             total: totalProjectRevenue,
-            groupValue: group ? page[group] : null
+            groupValue: pageGroupValue
         })
     }
 
@@ -116,7 +125,6 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
         return monthEnd >= startDateFilter && monthStart <= endDateFilter
     })
 
-    // If no months fall within the reporting range, display a message
     if (filteredSortedMonths.length === 0) {
             if (allProjectsMonthlyData.length > 0)
                 return `No months between ${startDateFilter.toFormat('yyyy-MM')} and ${endDateFilter.toFormat('yyyy-MM')} contain working days from the selected projects.`
@@ -129,10 +137,8 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
         monthlyBreakdown: { [monthKey: string]: number };
         totalDisplayed: number;
     }[] = []
-    let isGrouped = false
 
     if (group) {
-        isGrouped = true
         const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, totalDisplayed: number } } = {}
 
         for (const project of allProjectsMonthlyData) {
@@ -176,6 +182,7 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
     } else {
         items = allProjectsMonthlyData
             // .sort((a, b) => String(a.name.display || a.name).localeCompare(String(b.name.display || b.name)))
+            .sort((a, b) => b.total - a.total)
             .map(project => {
                 let projectTotalRevenueDisplayed = 0
                 for (const monthKey of filteredSortedMonths) {
@@ -189,8 +196,9 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
             })
     }
 
-    return { items, isGrouped, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals }
+    return { items, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals }
 }
+
 
 /**
  * Calculates and displays revenue and PDs by month for a list of projects,
@@ -202,15 +210,15 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
  */
-export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
 
     const result = getMonthlyRevenue(dv, pages, group, from_date, to_date);
     if (typeof result === 'string')
         return dv.paragraph(result)
-    const { items, isGrouped, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals } = result;
+    const { items, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals } = result;
 
     const headers: (string | any)[] = [
-        (isGrouped ? (group || "Group") : "Project"),
+        "Project",
         "Total",
         ...filteredSortedMonths.map(monthKey => dv.date(monthKey).toFormat('MMM yy'))
     ]
@@ -358,7 +366,7 @@ export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: str
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-31').
  */
-export function monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | null, from_date?: string | null, to_date?: string | null): void {
+export function monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
 
     const result = getMonthlyRevenue(dv, pages, group, from_date, to_date);
     if (typeof result === 'string')
