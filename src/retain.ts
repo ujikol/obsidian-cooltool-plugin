@@ -44,7 +44,8 @@ export class RetainAPI {
             params = ["sqlquery=" + JSON.stringify(query)]
         }
         const response = await curlGetRequest(this.config.baseURL + endpoint, params, this.config.credentials, debug)
-        // console.log("XXXz", response)
+        if (debug)
+            console.debug("XXXz", response)
         return JSON.parse(response)
     }
 
@@ -103,7 +104,7 @@ export class RetainAPI {
         // Team output
         teamOutput = getMarkdownTable({table: {
             head: ["M/C", "Name", "Role", "Email", "DAS_ID"],
-            body: resources.map(res => [`[[${res.RES_DESCR}\\|@${res.RES_USRLOGON}]]`, res.RES_DESCR, res.RES_GCM_ID_DESCR, res.RES_EMAIL, res.RES_DASID])
+            body: resources.map(res => [`[[${res.RES_DESCR}\\|@${res.RES_USRLOGON}]]`, res.RES_DESCR, res.RES_GCM_ID_DESCR || "", res.RES_EMAIL || "", res.RES_DASID])
         }})
 
         // Project properties
@@ -211,7 +212,7 @@ export class RetainAPI {
         shiftsPivot = shiftsPivot.map(w => [].concat.apply([], [[], w, [sum(w)]]))
         wks.push(-1)
         const shiftOutput = getMarkdownTable({table: {
-            head: [].concat.apply([], [["Week", "Date"], resources.map(r => r.RES_USRLOGON), ["Total"]]),
+            head: [].concat.apply([], [["Week", "Date"], resources.map(r => r.RES_USRLOGON || ""), ["Total"]]),
             body: zip(wks, shiftsPivot).map(x => {
                 // @ts-ignore - strange build error TS2693
                 const week = DateTime.fromMillis(x[0])

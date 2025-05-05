@@ -428,10 +428,12 @@ export class CoolTool implements CoolToolInterface {
             this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`[[${note!.basename}]]\n`, {line:insertLine, ch:0})
             new Notice("Project imported from Retain.")
         } catch (err) {
-            if (err.startsWith("Error: Command failed: curl")) {
-                new Notice("ERROR:\nConnection to Retain failed.\nIs VPN active?", 10000)
-                // console.log(err) // includes credentials
-            } else {
+            try {
+                if (err.startsWith("Error: Command failed: curl")) {
+                    new Notice("ERROR:\nConnection to Retain failed.\nIs VPN active?", 10000)
+                    // console.log(err) // includes credentials
+                }
+            } catch {
                 new Notice("ERROR:\n" + err)
                 console.error(err)
             }
