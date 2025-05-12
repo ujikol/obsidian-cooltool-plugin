@@ -528,12 +528,12 @@ export class CoolTool implements CoolToolInterface {
 
     // reporting functions ======================
 
-    monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
-        monthlyRevenuesTable(dv, pages, group, from_date, to_date)
+    monthlyRevenuesTable(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): void {
+        monthlyRevenuesTable(dv, pages, from_date, to_date, group, sort)
     }
 
-    monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
-        monthlyRevenuesChart(dv, pages, group, from_date, to_date)
+    monthlyRevenuesChart(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): void {
+        monthlyRevenuesChart(dv, pages, from_date, to_date, group, sort)
     }
 
 }

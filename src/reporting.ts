@@ -18,11 +18,11 @@ Chart.register(...registerables);
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
  */
-export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => any) | null, from_date?: string | null, to_date?: string | null): {
+export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): {
         items: {
             id: string | any
             monthlyBreakdown: { [monthKey: string]: number }
-            totalDisplayed: number
+            total: number
         }[];
         filteredSortedMonths: string[];
         monthlyPDTotals: { [monthKey: string]: number }
@@ -36,7 +36,13 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
     if (!startDateFilter || !endDateFilter) {
         return `Error parsing date filters. Please ensure from_date ('${from_date}') and to_date ('${to_date}') are in-MM-DD format.`
     }
-
+    const compare =
+        (!sort || sort === "total") ?
+            (a: any, b: any) => b.total - a.total
+        : sort === "name" ?
+            (a: any, b: any) => String(a.name.display || a.name).localeCompare(String(b.name.display || b.name))
+        : (a: any, b: any) => (filteredSortedMonths.map(monthKey => a.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0) - filteredSortedMonths.map(monthKey => b.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0))
+        
     let allProjectsMonthlyData: {
         name: any;
         monthlyBreakdown: { [monthKey: string]: number }
@@ -54,9 +60,11 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
         const rate = page.Avg_PD_Rate
 
         if (!(start && end && start.isValid && end.isValid && start <= end && typeof budget === 'number' && typeof rate === 'number')) {
-            const text = `Invalid project data for ${page.file.link}. Ensure Execution_Start, Execution_End, Budget_PD, and Avg_PD_Rate are valid.`
-            new Notice(text)
-            console.warn(text)
+            if (page.Nessie_ID || !page.Salesforce_ID) {
+                const text = `Invalid project data for ${page.file.link}. Ensure Execution_Start, Execution_End, Budget_PD, and Avg_PD_Rate are valid.`
+                new Notice(text)
+                console.warn(text)
+            }
             continue
         }
 
@@ -74,9 +82,9 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
 
         if (workingDaysInRange === 0) {
             // Avoid division by zero if a project has no working days in its range (e.g., weekend-only project)
-            const text = `Project ${page.file.link} has no working days between ${start.toFormat('yyyy-MM-dd')} and ${end.toFormat('yyyy-MM-dd')}. Skipping.`
-            new Notice(text)
-            console.warn(text)
+            // const text = `Project ${page.file.link} has no working days between ${start.toFormat('yyyy-MM-dd')} and ${end.toFormat('yyyy-MM-dd')}. Skipping.`
+            // new Notice(text)
+            // console.warn(text)
             continue;
         }
 
@@ -135,11 +143,11 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
     let items: {
         id: string | any;
         monthlyBreakdown: { [monthKey: string]: number };
-        totalDisplayed: number;
+        total: number;
     }[] = []
 
     if (group) {
-        const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, totalDisplayed: number } } = {}
+        const groupedData: { [key: string]: { monthlyBreakdown: { [monthKey: string]: number }, total: number } } = {}
 
         for (const project of allProjectsMonthlyData) {
             let key = project.groupValue
@@ -154,7 +162,7 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
             if (!groupedData[key]) {
                 groupedData[key] = {
                     monthlyBreakdown: {},
-                    totalDisplayed: 0
+                    total: 0
                 }
             }
 
@@ -165,24 +173,23 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
                         }
                         const monthlyAmount = project.monthlyBreakdown[month]
                         groupedData[key].monthlyBreakdown[month] += monthlyAmount
-                        groupedData[key].totalDisplayed += monthlyAmount
+                        groupedData[key].total += monthlyAmount
                     }
                 }
         }
 
-        items = Object.keys(groupedData).sort((a, b) => groupedData[b].totalDisplayed - groupedData[a].totalDisplayed).map(groupKey => {
+        items = Object.keys(groupedData).sort((a, b) => compare(groupedData[a], groupedData[b])).map(groupKey => {
             const groupData = groupedData[groupKey]
             return {
                 id: groupKey,
                 monthlyBreakdown: groupData.monthlyBreakdown,
-                totalDisplayed: groupData.totalDisplayed
+                total: groupData.total
             }
         })
 
     } else {
         items = allProjectsMonthlyData
-            // .sort((a, b) => String(a.name.display || a.name).localeCompare(String(b.name.display || b.name)))
-            .sort((a, b) => b.total - a.total)
+            .sort(compare)
             .map(project => {
                 let projectTotalRevenueDisplayed = 0
                 for (const monthKey of filteredSortedMonths) {
@@ -191,7 +198,7 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
                 return {
                     id: project.name,
                     monthlyBreakdown: project.monthlyBreakdown,
-                    totalDisplayed: projectTotalRevenueDisplayed
+                    total: projectTotalRevenueDisplayed
                 }
             })
     }
@@ -210,9 +217,9 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], group?: string
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
  */
-export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
+export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): void {
 
-    const result = getMonthlyRevenue(dv, pages, group, from_date, to_date);
+    const result = getMonthlyRevenue(dv, pages, from_date, to_date, group, sort);
     if (typeof result === 'string')
         return dv.paragraph(result)
     const { items, filteredSortedMonths, monthlyPDTotals, monthlyRevenueTotals } = result;
@@ -252,7 +259,7 @@ export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: str
 
     itemRows = items.map(item => {
         const row: (string | number | any)[] = [item.id]
-        row.push(item.totalDisplayed.toFixed(2))
+        row.push(item.total.toFixed(2))
 
         for (const monthKey of filteredSortedMonths) {
             const monthlyAmount = item.monthlyBreakdown[monthKey] || 0
@@ -366,9 +373,9 @@ export function monthlyRevenuesTable(dv: any, pages: PageMetadata[], group?: str
  * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
  * @param to_date Optional end date string for filtering projects and months (YYYY-MM-31').
  */
-export function monthlyRevenuesChart(dv: any, pages: PageMetadata[], group?: string | ((p: PageMetadata) => string) | null, from_date?: string | null, to_date?: string | null): void {
+export function monthlyRevenuesChart(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): void {
 
-    const result = getMonthlyRevenue(dv, pages, group, from_date, to_date);
+    const result = getMonthlyRevenue(dv, pages, from_date, to_date, group, sort);
     if (typeof result === 'string')
         return dv.paragraph(result)
     const { items, filteredSortedMonths } = result
