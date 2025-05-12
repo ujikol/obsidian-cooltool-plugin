@@ -40,7 +40,7 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: st
         (!sort || sort === "total") ?
             (a: any, b: any) => b.total - a.total
         : sort === "name" ?
-            (a: any, b: any) => String(a.name.display || a.name).localeCompare(String(b.name.display || b.name))
+            (a: any, b: any) => String(a.id ? a.id.display || a.id : a).localeCompare(String(b.id ? b.id.display || b.id: b))
         : (a: any, b: any) => (filteredSortedMonths.map(monthKey => a.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0) - filteredSortedMonths.map(monthKey => b.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0))
         
     let allProjectsMonthlyData: {
