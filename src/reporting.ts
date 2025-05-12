@@ -40,9 +40,9 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: st
         (!sort || sort === "total") ?
             (a: any, b: any) => b.total - a.total
         : sort === "name" ?
-            (a: any, b: any) => String(a.id ? a.id.display || a.id : a).localeCompare(String(b.id ? b.id.display || b.id: b))
+            (a: any, b: any) => String(a.name ? a.name.display || a.name.path || a.name : a).localeCompare(String(b.name ? b.name.display || b.name.path || b.name: b))
         : (a: any, b: any) => (filteredSortedMonths.map(monthKey => a.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0) - filteredSortedMonths.map(monthKey => b.monthlyBreakdown[monthKey] || 0).findIndex((v: number) => v > 0))
-        
+
     let allProjectsMonthlyData: {
         name: any;
         monthlyBreakdown: { [monthKey: string]: number }
@@ -178,7 +178,8 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: st
                 }
         }
 
-        items = Object.keys(groupedData).sort((a, b) => compare(groupedData[a], groupedData[b])).map(groupKey => {
+        const sortedKeys = sort === "name" ? Object.keys(groupedData).sort() : Object.keys(groupedData).sort((a, b) => compare(groupedData[a], groupedData[b]))
+        items = sortedKeys.map(groupKey => {
             const groupData = groupedData[groupKey]
             return {
                 id: groupKey,
