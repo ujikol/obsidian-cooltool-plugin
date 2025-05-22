@@ -15,8 +15,8 @@ Chart.register(...registerables);
  * @param dv The Dataview API object.
  * @param pages An array of PageMetadata objects, each representing a project.
  * @param group An optional string key to group projects by (e.g., 'Client') or a function that takes a PageMetadata object and returns the group key.
- * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2000-01-01'.
- * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2099-12-31'.
+ * @param from_date Optional start date string for filtering projects and months (YYYY-MM-DD). Defaults to '2020-01-01'.
+ * @param to_date Optional end date string for filtering projects and months (YYYY-MM-DD). Defaults to '2029-12-31'.
  */
 export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: string, to_date?: string, group?: string | ((p: PageMetadata) => any), sort?: "name" | "total" | "month"): {
         items: {
@@ -29,8 +29,8 @@ export function getMonthlyRevenue(dv: any, pages: PageMetadata[], from_date?: st
         monthlyRevenueTotals: { [monthKey: string]: number }
     } | string {
 
-    const startDateString = from_date ?? '2000-01-01'
-    const endDateString = to_date ?? '2099-12-31'
+    const startDateString = from_date ?? '2020-01-01'
+    const endDateString = to_date ?? '2029-12-31'
     const startDateFilter = dv.date(startDateString)
     const endDateFilter = dv.date(endDateString)
     if (!startDateFilter || !endDateFilter) {

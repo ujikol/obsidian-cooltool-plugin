@@ -44,8 +44,7 @@ export class RetainAPI {
             params = ["sqlquery=" + JSON.stringify(query)]
         }
         const response = await curlGetRequest(this.config.baseURL + endpoint, params, this.config.credentials, debug)
-        if (debug)
-            console.debug("XXXz", response)
+        console.debug("Retain response:\n", response)
         return JSON.parse(response)
     }
 

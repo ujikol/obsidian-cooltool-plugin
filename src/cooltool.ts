@@ -477,7 +477,7 @@ export class CoolTool implements CoolToolInterface {
                 throw `Template file "${templatePath}" does not exist.`
             this.templateArgs["projectID"] = projectID
             // const projectPath = CT_PROJECTS_ROOT + "/" + (projectCountry ? projectCountry : "Salesforce") + "/" + projectID
-            const projectPath = CT_PROJECTS_ROOT + "/Basic_Projects/" + projectID
+            const projectPath = CT_PROJECTS_ROOT + "/Projects/" + projectID
             this.templateArgs["path"] = projectPath
             let note: TFile
             if (parent) {
