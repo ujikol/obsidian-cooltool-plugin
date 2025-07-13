@@ -23,7 +23,7 @@ export class CoolTool implements CoolToolInterface {
 	dv: DataviewApi
 	tp: TemplaterPlugin
 	templateArgs: { [key: string]: any }
-	templatesFolder = "CT_Projects/Templates"
+	templatesFolder = "CT_Templates"
     private parsingBuffers: {[path:string]: ParsingBuffer}
 
 	constructor(plugin: CoolToolPlugin) {
@@ -518,9 +518,9 @@ export class CoolTool implements CoolToolInterface {
                 "Location": r.RES_LOC_ID_DESCR,
                 "OrgUnit": r.RES_ORG_ID_DESCR}
                 try {
-                    await app.vault.delete(app.vault.getAbstractFileByPath(CT_PROJECTS_ROOT + "/People/Retain/" + r.RES_DESCR + ".md")!)
+                    await app.vault.delete(app.vault.getAbstractFileByPath("CT_People/Retain/" + r.RES_DESCR + ".md")!)
                 } catch (e) {}
-                const note = (await tp.templater.create_new_note_from_template(templateFile, CT_PROJECTS_ROOT + "/People/Retain", r.RES_DESCR, false))
+                const note = (await tp.templater.create_new_note_from_template(templateFile, "CT_People/Retain", r.RES_DESCR, false))
         }
         new Notice(`Imported ${resources.length} people.`)
     }

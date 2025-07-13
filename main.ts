@@ -68,6 +68,7 @@ export default class CoolToolPlugin extends Plugin {
         // accounts for https://github.com/platers/obsidian-linter/issues/19
         const that = this
         window.CodeMirrorAdapter.commands.save = () => {that.app.commands.executeCommandById('editor:save-file')}
+        console.log('CoolTool loaded')
     }
 
 	onunload() {
@@ -79,6 +80,7 @@ export default class CoolToolPlugin extends Plugin {
         if (saveCommandDefinition?.callback && this.originalSaveCallback) {
             saveCommandDefinition.callback = this.originalSaveCallback
         }      
+        console.log('CoolTool unloaded')
     }
 
 	async loadSettings() {
