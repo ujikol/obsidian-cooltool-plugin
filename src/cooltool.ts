@@ -556,7 +556,7 @@ export const CreateProjectCommand = (plugin: CoolToolPlugin): Command => ({
     name: 'Create Project',
     callback: () => {
         new CreateProjectModal(plugin.app, (projectID: string, importIt: boolean, parent: boolean) => {
-            window.ct.createProject(projectID, importIt, parent)
+            window.ct.createProject(projectID.trim(), importIt, parent)
           }).open()
     }
 })
