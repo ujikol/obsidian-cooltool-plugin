@@ -202,10 +202,8 @@ export class CoolTool implements CoolToolInterface {
     }
 
     actionPlan(title:string="Agreed Tasks"): string {
-        const query = `
-            filter by function task.file.path.includes(query.file.path)
-            sort by priority
-        `
+        const query = `filter by function task.file.path.includes(query.file.path)
+        sort by priority`
         return this.tasks(query, title)
     }
     
@@ -381,6 +379,7 @@ export class CoolTool implements CoolToolInterface {
             html.removeChild(firstParagraph)
             html.removeChild(firstHeading)
             outlookItem["body"] = html.innerHTML
+            console.log("XXX1", outlookItem["body"])
         } catch (e) {
             const msg = "Cannot create Email.\nIs the branch structure correct?\n" + e
             console.error(msg)

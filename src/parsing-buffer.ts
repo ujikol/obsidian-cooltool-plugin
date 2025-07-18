@@ -33,8 +33,8 @@ export class ParsingBuffer {
 
 	getStakeholders(heading: string): DataArray<string> {
         if (!this.headings) {
-            new Notice("ATTENTION:\nNot all placeholders replace correctly for:\n${this.path}\nYou need to refresh!")
-            console.warn("ParsingBuffer not initialized for: ${this.path}")
+            new Notice(`ATTENTION:\nNot all placeholders replace correctly for:\n${this.path}\nYou need to refresh!`)
+            console.warn(`ParsingBuffer not initialized for: ${this.path}`)
         }
         const table_heading = this.headings.find((h: HeadingCache) => h.heading === heading)
         if (!table_heading)

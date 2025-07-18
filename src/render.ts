@@ -1,3 +1,4 @@
+import { delay } from "es-toolkit"
 import { CoolToolPlugin } from "../src/types"
 import { HeadingCache, MarkdownRenderer } from 'obsidian'
 
@@ -26,8 +27,8 @@ export async function renderBranch(plugin: CoolToolPlugin, line:number): Promise
     const text = editor.getRange({line: line, ch: 0}, {line: endLine, ch: 0})
     const el = document.body.createDiv();
     await MarkdownRenderer.render(app, text, el, file.path, plugin);
+    await delay(1001)
     return el //.innerHTML
-
 }
 
 
