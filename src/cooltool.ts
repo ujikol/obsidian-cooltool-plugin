@@ -8,10 +8,12 @@ import { executePowerShellCommand, pssavpar} from "../src/powershell"
 import { monthlyRevenuesTable, monthlyRevenuesChart } from "../src/reporting"
 import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache} from 'obsidian'
 import { getAPI, DataviewApi, Link, DataArray, PageMetadata } from "obsidian-dataview"
-import { intersection } from "es-toolkit"
+import { delay, intersection } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
 import { RetainAPI } from "./retain"
+import * as fs from 'fs'
+import { exec } from 'child_process';
 const path = require('path')
 const os = require('os')
 
@@ -243,7 +245,11 @@ export class CoolTool implements CoolToolInterface {
 		this.templateArgs = args
 		this.templateArgs["path"] = file.path
 		noteName = await tp.templater.parse_template({template_file: undefined, target_file: file, run_mode: "AppendActiveFile", active_file: file}, noteName)
+        await delay(1001)
+        console.log("XXX1 Creating note from template:", templateFile, file.parent!, noteName)
 		const note = await tp.templater.create_new_note_from_template(templateFile, file.parent!, noteName, false)
+        await delay(1001)
+        console.log("XXX2 Creating note from template:", note)
 		return note
     }
 
@@ -286,24 +292,29 @@ export class CoolTool implements CoolToolInterface {
     // MsTeams ==================================
     async updateTeamBelow(teamName?: string) {
         this.getParsingBuffer(this.pathFromLink(undefined), async (buf) => {
+            console.log("updateTeamBelow", teamName)
             const parsed = await buf.parseMsTeam(teamName)
-            if (parsed) {
-                const [team, idInsertLine] = parsed
-                if (idInsertLine)
-                    new Notice("Confirm login!.\nDo not make any changes until you receive a confirmation that the team was updated!", 7000)
-                else
-                    new Notice("Confirm login and be patient!\nMsTeam may need quite a few seconds to create a new team.\nDo not make any changes until you receive a confirmation that the team was created!", 15000)
-                const waitModal = new WaitModal(this.plugin.app)
-                waitModal.open()
-                const [success, id, output] = await msteamsSetupTeam(team)
-                if (id && idInsertLine)
-                    this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`:ID: ${id}\n`, {line:idInsertLine!, ch:0})
-                if (success)
-                    new Notice("Creation/Update succeeded.")
-                else
-                    new Notice("Creation/Update failed:\n" + output)
-                waitModal.close()
+            if (!parsed) {
+                const msg = "Failed to parse note for team update.\n"
+                console.error(msg)
+                new Notice("ERROR: " + msg)
+                return
             }
+            const [team, idInsertLine] = parsed
+            if (idInsertLine)
+                new Notice("Confirm login!.\nDo not make any changes until you receive a confirmation that the team was updated!", 7000)
+            else
+                new Notice("Confirm login and be patient!\nMsTeam may need quite a few seconds to create a new team.\nDo not make any changes until you receive a confirmation that the team was created!", 15000)
+            const waitModal = new WaitModal(this.plugin.app)
+            waitModal.open()
+            const [success, id, output] = await msteamsSetupTeam(team)
+            if (id && idInsertLine)
+                this.plugin.app.workspace.activeEditor!.editor!.replaceRange(`:ID: ${id}\n`, {line:idInsertLine!, ch:0})
+            if (success)
+                new Notice("Creation/Update succeeded.")
+            else
+                new Notice("Creation/Update failed:\n" + output)
+            waitModal.close()
         })
     }
 
@@ -535,6 +546,140 @@ export class CoolTool implements CoolToolInterface {
         monthlyRevenuesChart(dv, pages, from_date, to_date, group, sort)
     }
 
+
+    // Hard code various js elements
+
+    // "[Project Folder](file:" + encodeURI(ct.property("Project_Folder")) + ")"
+    projectFolder() {
+        return "[Project Folder](file:" + encodeURI(this.property("Project_Folder")) + ")"
+    }
+
+    // "[Work Folder](file:" + encodeURI(ct.property("Project_Folder") + "/02_Work_in_progress/01_Workdata") + ")"
+    workFolder() {
+        return "[Work Folder](file:" + encodeURI(this.property("Project_Folder") + "/02_Work_in_progress/01_Workdata") + ")"
+    }
+
+    // "[here](file:" + encodeURI(ct.property("Project_Folder") + "/01_PM/01_Permission_to_Attack") + ")"
+    ptaFolder() {
+        return "[here](file:" + encodeURI(this.property("Project_Folder") + "/01_PM/01_Permission_to_Attack") + ")"
+    }
+
+    // "[Final/Deliveryprotocol Folder](file:" + encodeURI(ct.property("Project_Folder") + "/03_Final_deliverables/03_Deliveryprotocol") + ")"
+    deliveryProtocolFolder() {
+        return "[Final/Deliveryprotocol Folder](file:" + encodeURI(this.property("Project_Folder") + "/03_Final_deliverables/03_Deliveryprotocol") + ")"
+    }
+
+    // "[Final/Final Folder](file:" + encodeURI(ct.property("Project_Folder") + "/03_Final_deliverables/01_Final_Report") + ")"
+    finalFolder() {
+        return "[Final/Final Folder](file:" + encodeURI(this.property("Project_Folder") + "/03_Final_deliverables/01_Final_Report") + ")"
+    }
+
+    // "[Decryption Folder](file:" + encodeURI("S:/EMEA/Delivery/" + ct.property("Client")[0] + "/" + ct.property("Client") + "/decrypt") + ")"
+    decryptionFolder() {
+        return "[Decryption Folder](file:" + encodeURI("S:/EMEA/Delivery/" + this.property("Client")[0] + "/" + this.property("Client") + "/decrypt") + ")"
+    }
+
+    // "[[Tasks Tracking " + ct.property("Project_ID") + "|Task Tracking]]"
+    taskTracker() {
+        return "[[Tasks Tracking " + this.property("Project_ID") + "|Task Tracking]]"
+    }
+
+    // '<a href="' + encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + ct.property("Project_ID") + ' or summary~' + ct.property("Salesforce_ID") + ' or "Project Number"~' + ct.property("Project_ID") + ') ORDER BY updated DESC') + '">DyPla Ticket</a>'
+    dyplaTicket() {
+        return '<a href="' + encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC') + '">DyPla Ticket</a>'
+    }
+
+    // "[QA Ticket](https:" + encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + ct.property("Project_ID") + ' or summary~' + ct.property("Salesforce_ID") + ' or "Project Number"~' + ct.property("Project_ID") + ') ORDER BY updated DESC') + ")"
+    qaTicket() {
+        return "[QA Ticket](https:" + encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC') + ")"
+    }
+
+    // window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=15300&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&customfield_26500=" + ct.property("Salesforce_ID") + "&description="))
+    createPresalesTicket() {
+        return window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
+        + "pid=15300&issuetype=10000&"
+        + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
+        + "&customfield_10401=" + this.property("Project_ID")
+        + "&priority=10100"
+        + "&reporter=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&duedate="
+        + "&customfield_10218="
+        + "&customfield_24503=" + this.property("Budget_PD")
+        + "&customfield_15122=11035"
+        + "&customfield_21100=13213"
+        + "&customfield_16802=" + this.property("Client")
+        + "&customfield_24600=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
+        + "&customfield_24502=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_24501=13200"
+        + "&customfield_26500=" + this.property("Salesforce_ID")
+        + "&description="))
+    }
+
+    // 'window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=12500&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_17623=" + ct.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&description="))'
+    createQaTicket() {
+        return window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
+        + "pid=12500&issuetype=10000&"
+        + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
+        + "&customfield_10401=" + this.property("Project_ID")
+        + "&priority=10100"
+        + "&reporter=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&duedate="
+        + "&customfield_10218="
+        + "&customfield_24503=" + this.property("Budget_PD")
+        + "&customfield_15122=11035"
+        + "&customfield_21100=13213"
+        + "&customfield_16802=" + this.property("Client")
+        + "&customfield_17623=" + this.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report"
+        + "&customfield_24600=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
+        + "&customfield_24502=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_24501=13200"
+        + "&description="))
+    }
+
+    // window.open("https://" + encodeURI("dypla.vie.sec-consult.com/connector/request/" + ct.property("Project_ID")))
+    updatePermissions() {
+        return window.open("https://" + encodeURI("dypla.vie.sec-consult.com/connector/request/" + this.property("Project_ID")))
+    }
+
+    // window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + ct.team().filter(m => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + ct.property("Project_ID") + " Decrypt &for=" + ct.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\n\rWho: " + ct.team().filter(m => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
+    rfpMail() {
+        return window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + this.property("Project_ID") + " Decrypt &for=" + this.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + this.property("Client")[0] + "\\" + this.property("Client") + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + this.property("Client")[0] + "\\" + this.property("Client") + "\\\n\rWho: " + this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
+    }
+
+    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Agenda ${ct.property("Project_ID")}`, {instructions:true, stage:"Agenda", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    createKickoffAgenda(context: any) {
+        return this.createNote(context,
+            `Pentest Profile ${this.property("Language")}`,
+            `Kickoff Agenda ${this.property("Project_ID")}`,
+            {
+                instructions:true,
+                stage:"Agenda",
+                stakeholdersFilter:(m: any) => true,
+                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+            })
+    }
+
+    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Minutes ${ct.property("Project_ID")}`, {instructions:true, stage:"Kickoff", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    createKickoffMinutes(context: any) {
+        return this.createNote(context,
+            `Pentest Profile ${this.property("Language")}`,
+            `Kickoff Minutes ${this.property("Project_ID")}`,
+            {
+                instructions:true,
+                stage:"Kickoff",
+                stakeholdersFilter:(m: any) => true,
+                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+            })
+    }
+
+    // ct.createNote(context, `AM Briefing`, `AM-PM Briefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    createAMBriefing(context: any) {
+        return this.createNote(context,
+            `AM Briefing`,
+            `AM-PM Briefing ${this.property("Project_ID")}`,
+            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    }   
+
 }
 
 // Import People ================================
@@ -653,3 +798,34 @@ export const UpdatePropertiesCommand = (plugin: CoolToolPlugin): Command => ({
         updateProperties(file)
     }
 })
+
+
+// Update plugins and templates =============================
+
+export const UpdateCommand = (plugin: CoolToolPlugin): Command => ({
+    id: 'update',
+    name: 'Update',
+    callback: async () => {
+        new Notice("Updating plugins and templates...")
+        gitPull(path.join(plugin.app.vault.adapter.basePath, (window.ct as CoolTool).templatesFolder))
+        gitPull(path.join(plugin.app.vault.adapter.basePath, "CT_People"))
+        plugin.app.commands.executeCommandById('obsidian42-brat:checkForUpdatesAndUpdate')
+    },
+})
+
+async function gitPull(repoPath: string) {
+    try {
+        exec(`git -C "${repoPath}" pull`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`gitPull ERROR for path: ${repoPath}`, error, stderr);
+                new Notice(`Failed to pull repo at: ${repoPath}\n${stderr}`);
+            } else {
+                console.log(`gitPull SUCCESS for path: ${repoPath}`, stdout);
+                new Notice(`Successfully pulled repo at: ${repoPath}`);
+            }
+        });
+    } catch (err) {
+        console.error(`gitPull ERROR for path: ${repoPath}`, err);
+        new Notice(`Failed to pull repo at: ${repoPath}\n${err}`);
+    }
+}

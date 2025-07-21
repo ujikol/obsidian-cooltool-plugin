@@ -89,6 +89,7 @@ export class ParsingBuffer {
 				const buttonLine = buttonLines[lineDiffs.indexOf(Math.min(...lineDiffs))]
 				index = this.headings.findLastIndex((h: HeadingCache) => h.position!.start.line <= buttonLine)
 				if (index < 0)
+					// console.log(this.headings)
 					throw `Error: Cannot find team heading (with button below) in context of cursor line ${cursor.line}.`
 				teamName = await this.expandedText(this.headings[index].heading)
 			}

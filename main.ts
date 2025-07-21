@@ -1,6 +1,6 @@
 // import { ChildProcess } from 'child_process';
 import { Plugin, TFile, EventRef, MarkdownView, Editor, Command } from 'obsidian'
-import { CoolTool, CreateProjectCommand, ImportPeopleCommand, UpdatePropertiesCommand, updateProperties } from 'src/cooltool'
+import { CoolTool, CreateProjectCommand, ImportPeopleCommand, UpdateCommand, UpdatePropertiesCommand, updateProperties } from 'src/cooltool'
 import { CoolToolSettings } from 'src/types'
 import { CoolToolSettingTab } from 'src/settings'
 // import { NoteAsHtmlToClipboardCommand, ExportNoteAsHtmlCommand } from 'src/render'
@@ -21,6 +21,7 @@ export default class CoolToolPlugin extends Plugin {
 
 		this.addCommand(CreateProjectCommand(this))
 		this.addCommand(ImportPeopleCommand(this))
+		this.addCommand(UpdateCommand(this))
 		this.addCommand(UpdatePropertiesCommand(this))
 		// this.addCommand(NoteAsHtmlToClipboardCommand(this))
 		// this.addCommand(ExportNoteAsHtmlCommand(this))
