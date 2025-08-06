@@ -5,6 +5,7 @@ import { Notice, HeadingCache, SectionCache } from 'obsidian'
 import { DataArray } from "obsidian-dataview"
 import { delay } from 'es-toolkit'
 import { CoolTool } from "./cooltool"
+// import { Md5 } from "ts-md5"
 
 
 export class ParsingBuffer {
@@ -19,6 +20,7 @@ export class ParsingBuffer {
 		this.plugin = plugin
 		this.ct = ct
         this.path = path
+		console.log("XXX ParsingBuffer created for", path)
     }
 
     async init() {
@@ -29,6 +31,8 @@ export class ParsingBuffer {
 		this.text = this.path === app.workspace.getActiveFile()?.path ? app.workspace.activeEditor!.editor!.getValue() : await app.vault.cachedRead(file)
 		this.sections = cache.sections!
 		this.headings = cache.headings!
+		// console.log("XXX0", cache)
+		// console.log("XXX ParsingBuffer initialized for", this.path)
 	}
 
 	getStakeholders(heading: string): DataArray<string> {
@@ -43,19 +47,33 @@ export class ParsingBuffer {
         while (++i < this.sections.length) {
             if (this.sections[i].type === "heading" && this.sections[i].position.start.offset === table_heading.position.start.offset) {
                 if (++i < this.sections.length && this.sections[i].type === "table") {
+					// console.log("XXX3", new Md5().appendStr(this.text).end(), new Md5().appendStr(this.plugin.app.workspace.activeEditor!.editor!.getValue()).end())
+					// console.log("XXX1 Parsing table", heading, this.sections[i-1].position.start.offset, this.sections[i].position.start.offset)
+					// console.log("XXX4", this.sections[i-1].position, this.sections[i].position)
+					// console.log("XXX5", this.text.slice(this.sections[i-1].position.start.offset, this.sections[i-1].position.start.offset + 40))
                     return this.ct.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
                 }
-            }
+            } else {
+				console.log("XXX6", this.sections[i].type, this.sections[i].position.start.offset, this.sections[i].position.end.offset,"\n", this.text.slice(this.sections[i].position.start.offset, this.sections[i].position.end.offset))
+			}
         }
         return []
     }
 
     parseTable(markdown: string): TableRow[] {
+		if (!markdown)
+			console.error("Error: No markdown to parse table")
         let rows = markdown.split('\n')
+		// console.error("XXX2", rows.slice(0,3))
         rows = rows.slice(0, rows.findIndex(r => !r.startsWith("| ")))
+		if (!rows[0]) {
+			console.error("XXX Error: No headers in table\n" + markdown.substring(0,100))
+		}
         const headers = rows[0].split('|').map(header => header.trim()).filter(Boolean)
         const dataRows = rows.slice(2)
         const parsedRows = dataRows.map(row => {
+			if (!row)
+				console.error("Error: No data in table row")
             const cells = (" " + row + " ").split(' | ')
                 .map(cell => cell.trim())
             if (cells.length === 0)

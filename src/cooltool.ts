@@ -244,12 +244,12 @@ export class CoolTool implements CoolToolInterface {
 			throw `Template file "${templatePath}" does not exist.`
 		this.templateArgs = args
 		this.templateArgs["path"] = file.path
+        await delay(1001)
 		noteName = await tp.templater.parse_template({template_file: undefined, target_file: file, run_mode: "AppendActiveFile", active_file: file}, noteName)
+        // console.log("XXX1 Creating note from template:", templateFile, file.parent!, noteName)
         await delay(1001)
-        console.log("XXX1 Creating note from template:", templateFile, file.parent!, noteName)
 		const note = await tp.templater.create_new_note_from_template(templateFile, file.parent!, noteName, false)
-        await delay(1001)
-        console.log("XXX2 Creating note from template:", note)
+        // console.log("XXX2 Creating note from template:", note)
 		return note
     }
 

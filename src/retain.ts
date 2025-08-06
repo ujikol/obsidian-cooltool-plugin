@@ -101,9 +101,10 @@ export class RetainAPI {
         }
 
         // Team output
+        const body = resources.map(res => [`[[${res.RES_DESCR}\\|@${res.RES_USRLOGON || res.RES_ID}]]`, res.RES_DESCR, res.RES_GCM_ID_DESCR || "", res.RES_EMAIL || "", res.RES_DASID || `${res.RES_ID}`])
         teamOutput = getMarkdownTable({table: {
             head: ["M/C", "Name", "Role", "Email", "DAS_ID"],
-            body: resources.map(res => [`[[${res.RES_DESCR}\\|@${res.RES_USRLOGON}]]`, res.RES_DESCR, res.RES_GCM_ID_DESCR || "", res.RES_EMAIL || "", res.RES_DASID])
+            body: body
         }})
 
         // Project properties
