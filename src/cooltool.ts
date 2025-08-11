@@ -77,6 +77,11 @@ export class CoolTool implements CoolToolInterface {
         return !strict
     }
 
+    // For compatibility with existing notes
+    isDelegatedTask(task:any): boolean {
+        return !this.isMyTask(task)
+    }
+
 
     // DataView =================================
 	async getDataview(trynumber:number=1) {
