@@ -70,10 +70,8 @@ export class CoolTool implements CoolToolInterface {
         if (match)
             return meArray.includes(match[1])
         actor = task.description.match(/^\[\[(([^\]@]+)\|)?@(.+)\]\]/)
-        if (actor) {
-            const actorName = actor[2] || actor[3]
-            return meArray.some(me => me === actorName)
-        }
+        if (actor)
+            return meArray.some(me => me == actor[2] || me == actor[3])
         return !strict
     }
 
