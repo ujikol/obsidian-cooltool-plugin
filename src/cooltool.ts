@@ -62,17 +62,19 @@ export class CoolTool implements CoolToolInterface {
 
     // Tasks ====================================
 
-    isDelegatedTask(task:any, me?:string[]): boolean {
-        if (!me)
-            me = this.plugin.settings.me
+    isMyTask(task:any, strict = false, me:string[]|string|undefined = undefined): boolean {
+        const meArray = !me ? [this.plugin.settings.me] : 
+                       typeof me === 'string' ? [me] : me
         let actor = null
         let match = task.description.match(/^@(\w+)/)
         if (match)
-            return !me.includes(match[1])
-        match = task.description.match(/^\[\[(([^\]@]+)\|)?@(.+)\]\]/)
-        if (match)
-            return !(me.includes(match[2]) || me.includes(match[3]))
-        return false
+            return meArray.includes(match[1])
+        actor = task.description.match(/^\[\[(([^\]@]+)\|)?@(.+)\]\]/)
+        if (actor) {
+            const actorName = actor[2] || actor[3]
+            return meArray.some(me => me === actorName)
+        }
+        return !strict
     }
 
 
@@ -809,6 +811,7 @@ export const UpdateCommand = (plugin: CoolToolPlugin): Command => ({
         new Notice("Updating plugins and templates...")
         gitPull(path.join(plugin.app.vault.adapter.basePath, (window.ct as CoolTool).templatesFolder))
         gitPull(path.join(plugin.app.vault.adapter.basePath, "CT_People"))
+        gitPull(path.join(plugin.app.vault.adapter.basePath, "CT_Documentation"))
         plugin.app.commands.executeCommandById('obsidian42-brat:checkForUpdatesAndUpdate')
     },
 })
