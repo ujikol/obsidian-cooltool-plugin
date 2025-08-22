@@ -19,6 +19,9 @@ const os = require('os')
 
 
 const CT_PROJECTS_ROOT = "CT_Projects"
+// const allActorsRegex = /^(@(?:\w+)|\[\[(?:[^\]@]+\|)?@(?:[^\]]+)\]\])(,\s*(?:@\w+|\[\[(?:[^\]@]+\|)?@(?:[^\]]+)\]\]))*/
+const eachActorsRegex =  /^\s*((@(\w+))|(\[\[(CT_People\/Retain\/)?(([^\]]+)(\.md)?\|)?@([^\]]+)\]\])),? */
+// const eachActorsRegex = new RegExp(allActorsRegex.toString().slice(1, -1).replace(/\?:/g, ""))
 
 export class CoolTool implements CoolToolInterface {
 	plugin: CoolToolPlugin
@@ -62,24 +65,43 @@ export class CoolTool implements CoolToolInterface {
 
     // Tasks ====================================
 
-    isMyTask(task:any, strict = false, me:string[]|string|undefined = undefined): boolean {
-        const meArray = !me ? [this.plugin.settings.me] : 
+    filterTask(task:any, personalFolders?:string[], sharedFolders?:string[], delegated = false, me:string[]|string|undefined = undefined): boolean {
+        const isPersonal = personalFolders?.some(f => task.file.path.startsWith(f))
+        const isShared = sharedFolders?.some(f => task.file.path.startsWith(f))
+        if (!isPersonal && !isShared)
+            return false
+        const meArray = !me ? this.plugin.settings.me : 
                        typeof me === 'string' ? [me] : me
-        let actor = null
-        let match = task.description.match(/^@(\w+)/)
-        if (match)
-            return meArray.includes(match[1])
-        actor = task.description.match(/^\[\[(([^\]@]+)\|)?@(.+)\]\]/)
-        if (actor)
-            return meArray.some(me => me == actor[2] || me == actor[3])
-        return !strict
+        let actors: string[] = []
+        var description = task.description
+        let match = description.match(eachActorsRegex)
+        while (match && match.length > 1) {
+            actors.push(match[3] || match[7] || match[9])
+            description = description.slice(match[0].length)
+            match = description.match(eachActorsRegex)
+        }
+        const assignedToMe = actors.some(a => meArray.includes(a))
+        try {
+            const pm = this.property("PM", task.file.path)
+            const tags = this.property("tags", task.file.path)
+            match = pm && pm.toString().match(eachActorsRegex)
+            const isMyNote:boolean = (match ? meArray.contains(match[9]) : false) || (tags ? tags.some((t:string) => meArray.contains(t)) : false)
+            if (!delegated) {
+                if (isPersonal)
+                    return assignedToMe || actors.length === 0
+                if (isShared)
+                    return assignedToMe || (actors.length === 0 && isMyNote)
+            } else {
+                if (isPersonal)
+                    return !assignedToMe && actors.length !== 0
+                if (isShared)
+                    return !assignedToMe && actors.length !== 0 && isMyNote
+            }
+        } catch (err) {
+            console.error(err)
+            return false
+        }
     }
-
-    // For compatibility with existing notes
-    isDelegatedTask(task:any): boolean {
-        return !this.isMyTask(task)
-    }
-
 
     // DataView =================================
 	async getDataview(trynumber:number=1) {
@@ -347,7 +369,10 @@ export class CoolTool implements CoolToolInterface {
         if (match) {
             path = match[1];
         }
-        return this.dv.page(path).file.path;
+        const page = this.dv.page(path)
+        if (!page)
+            throw new Error(`Cannot find page for path: ${path}`)
+        return page.file.path;
     }
 
     // logTrue(...args:any){
