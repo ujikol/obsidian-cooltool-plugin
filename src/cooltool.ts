@@ -101,6 +101,7 @@ export class CoolTool implements CoolToolInterface {
             console.error(err)
             return false
         }
+        return false // should never happen
     }
 
     // DataView =================================
