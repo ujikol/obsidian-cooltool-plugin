@@ -81,25 +81,38 @@ export class CoolTool implements CoolToolInterface {
             match = description.match(eachActorsRegex)
         }
         const assignedToMe = actors.some(a => meArray.includes(a))
-        try {
-            const pm = this.property("PM", task.file.path)
-            const tags = this.property("tags", task.file.path)
-            match = pm && pm.toString().match(eachActorsRegex)
-            const isMyNote:boolean = (match ? meArray.contains(match[9]) : false) || (tags ? tags.some((t:string) => meArray.contains(t)) : false)
+        if (isPersonal) {
             if (!delegated) {
-                if (isPersonal)
-                    return assignedToMe || actors.length === 0
-                if (isShared)
-                    return assignedToMe || (actors.length === 0 && isMyNote)
+                return assignedToMe || actors.length === 0
             } else {
-                if (isPersonal)
-                    return !assignedToMe && actors.length !== 0
-                if (isShared)
-                    return !assignedToMe && actors.length !== 0 && isMyNote
+                return !assignedToMe && actors.length !== 0
             }
-        } catch (err) {
-            console.error(err)
-            return false
+        }
+        if (isShared) {
+            try {
+                const pm = this.property("PM", task.file.path)
+                const tags = this.property("tags", task.file.path)
+                
+                let isMyNote = false
+                if (pm) {
+                    const pmMatches = pm.toString().match(/@(\w+)/g)
+                    if (pmMatches) {
+                        const pmActors = pmMatches.map((m: string) => m.substring(1))
+                        isMyNote = pmActors.some((a: string) => meArray.includes(a))
+                    }
+                }
+                if (!isMyNote && tags) {
+                    isMyNote = tags.some((t:string) => meArray.includes(t))
+                }
+                if (!delegated) {
+                    return assignedToMe || (actors.length === 0 && isMyNote)
+                } else {
+                    return !assignedToMe && actors.length !== 0 && isMyNote
+                }
+            } catch (err) {
+                console.error(err)
+                return false
+            }
         }
         return false // should never happen
     }
