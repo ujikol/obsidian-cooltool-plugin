@@ -89,10 +89,10 @@ export class CoolTool implements CoolToolInterface {
             }
         }
         if (isShared) {
+            if (assignedToMe)
+                return !delegated
             try {
                 const pm = this.property("PM", task.file.path)
-                const tags = this.property("tags", task.file.path)
-                
                 let isMyNote = false
                 if (pm) {
                     const pmMatches = pm.toString().match(/@(\w+)/g)
@@ -101,20 +101,23 @@ export class CoolTool implements CoolToolInterface {
                         isMyNote = pmActors.some((a: string) => meArray.includes(a))
                     }
                 }
-                if (!isMyNote && tags) {
-                    isMyNote = tags.some((t:string) => meArray.includes(t))
+                if (!isMyNote) {
+                    const tags = this.property("tags", task.file.path)
+                    if (tags && typeof Array.isArray(tags) && tags.some((t:string) => meArray.includes(t)))
+                        isMyNote = true
                 }
-                if (!delegated) {
-                    return assignedToMe || (actors.length === 0 && isMyNote)
-                } else {
-                    return !assignedToMe && actors.length !== 0 && isMyNote
-                }
+                if (!isMyNote)
+                    return false
+                if (!delegated) 
+                    return actors.length === 0
+                else
+                    return actors.length !== 0
             } catch (err) {
                 console.error(err)
                 return false
             }
         }
-        return false // should never happen
+        // return false // should never happen
     }
 
     // DataView =================================
