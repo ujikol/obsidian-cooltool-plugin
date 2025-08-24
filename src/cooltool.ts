@@ -117,7 +117,7 @@ export class CoolTool implements CoolToolInterface {
                 return false
             }
         }
-        // return false // should never happen
+        return false // can never happen; still needed for building
     }
 
     // DataView =================================
