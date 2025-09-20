@@ -30,6 +30,7 @@ export class CoolTool implements CoolToolInterface {
 	templateArgs: { [key: string]: any }
 	templatesFolder = "CT_Templates"
     private parsingBuffers: {[path:string]: ParsingBuffer}
+    // updatingProperties: Set<string> = new Set()
 
 	constructor(plugin: CoolToolPlugin) {
 		this.plugin = plugin
@@ -48,7 +49,7 @@ export class CoolTool implements CoolToolInterface {
 		// })
 	}
 
-    private getParsingBuffer(path:string, afterInit?: (buf: ParsingBuffer) => void): ParsingBuffer {
+    getParsingBuffer(path:string, afterInit?: (buf: ParsingBuffer) => void): ParsingBuffer {
         this.dv.page(path)
         let buf = this.parsingBuffers[path]
         if (!buf) {
@@ -210,14 +211,40 @@ export class CoolTool implements CoolToolInterface {
 		if (typeof heading === "string")
 			heading = [heading]
         path = this.pathFromLink(path)
-		const parsingBuffer = this.getParsingBuffer(path)
-		let all: DataArray<string> = []
         const page = this.dv.page(path)
+        
+        // Check for _table properties first
+        let all: DataArray<string> = this.dv.array([])
+        let foundTableProperty = false
+        
+        for (const h of heading) {
+            const tablePropertyName = h + "_table"
+            const tableProperty = page[tablePropertyName]
+            
+            if (tableProperty && Array.isArray(tableProperty)) {
+                // Convert YAML objects back to DataArray format
+                const tableRows = tableProperty.map((row: any) => {
+                    const tableRow = new TableRow()
+                    Object.entries(row).forEach(([key, value]) => {
+                        tableRow[key] = value
+                    })
+                    return tableRow
+                })
+                all = all.concat(this.dv.array(tableRows))
+                foundTableProperty = true
+            }
+        }
+        
+        // If no _table properties found, fall back to current behavior
+        if (!foundTableProperty) {
+            const parsingBuffer = this.getParsingBuffer(path)
+            all = parsingBuffer.getStakeholders(heading[0])
+            heading.slice(1).forEach((h: string) => {
+                all = all.concat(parsingBuffer.getStakeholders(h))
+            })
+        }
+        
         const parent = page.Parent
-        all = parsingBuffer.getStakeholders(heading[0])
-		heading.slice(1).forEach((h: string) => {
-			all = all.concat(parsingBuffer.getStakeholders(h))
-		})
         if (parent) {
             const upper = this.stakeholders(heading, parent)
             if (all.length > 0 && upper.length > 0)
@@ -805,35 +832,133 @@ export class CreateProjectModal extends Modal {
 
 // Automatic Properties =============================
 
+// Use a global (per-file) timeout map to ensure only one update is scheduled per file.
+const updatePropertiesTimeouts: Map<string, NodeJS.Timeout> = new Map()
+
 export async function updateProperties(file: TFile, delay: number = 0) {
-    let timeoutId: NodeJS.Timeout | null = null
-    let isCancelled = false
-  
+    if (!file || !file.path) return
+
+    // If there's already a timeout scheduled for this file, clear it
+    const existingTimeout = updatePropertiesTimeouts.get(file.path)
+    if (existingTimeout) {
+        clearTimeout(existingTimeout)
+    }
+
+    // Return a promise that resolves after the update (or immediately if replaced)
     return new Promise<void>((resolve) => {
-        if (timeoutId) {
-            clearTimeout(timeoutId)
-            isCancelled = true
-        }
-        timeoutId = setTimeout(() => {
-            if (!isCancelled && file && file.path) {
-                actuallyUpdateProperties(file)
-                resolve()
-            } else {
-                resolve()
-            }
-            timeoutId = null
+        const timeoutId = setTimeout(async () => {
+            updatePropertiesTimeouts.delete(file.path)
+            await actuallyUpdateProperties(file)
+            resolve()
         }, delay)
+        updatePropertiesTimeouts.set(file.path, timeoutId)
     })
 }
 
 async function actuallyUpdateProperties(file: TFile) {
-    await window.ct.plugin.app.fileManager.processFrontMatter(file, (fm: FrontMatterCache) => {
-        const dv = window.ct.dv
-        const page = dv.page(file.path)
-        if (fm.tags?.indexOf("SEC_Standard_Project") > -1) {
-            fm.Status = page.file.tasks.filter((t: any) => [" ", "."].contains(t.status)).length
+    // Store current editor state before making changes
+    const activeEditor = window.ct.plugin.app.workspace.activeEditor
+    let cursorPosition: { line: number; ch: number } | null = null
+    let isActiveFile = false
+    let propertiesChanged = false
+    
+    if (activeEditor && activeEditor.file?.path === file.path) {
+        isActiveFile = true
+        cursorPosition = activeEditor.editor?.getCursor() || null
+    }
+    
+    try {
+        await window.ct.plugin.app.fileManager.processFrontMatter(file, (fm: FrontMatterCache) => {
+            // const dv = window.ct.dv
+            // const page = dv.page(file.path)
+            // if (fm.tags?.indexOf("SEC_Standard_Project") > -1) {
+            //     fm.Status = page.file.tasks.filter((t: any) => [" ", "."].contains(t.status)).length
+            // }
+            
+            // Check for properties with "_table" suffix and parse corresponding headings
+            for (const [key, value] of Object.entries(fm)) {
+                if (key.endsWith("_table")) {
+                    const headingName = key.slice(0, -6) // Remove "_table" suffix
+                    try {
+                        // Get the parsing buffer for this file
+                        const parsingBuffer = window.ct.getParsingBuffer(file.path)
+                        const tableData = parsingBuffer.getStakeholders(headingName)
+                        
+                        // Convert table data to YAML objects
+                        const tableRows = tableData.array().map((row: any) => {
+                            const yamlObject: { [key: string]: any } = {}
+                            Object.entries(row).forEach(([header, cellValue]) => {
+                                yamlObject[header] = cellValue
+                            })
+                            return yamlObject
+                        })
+                        
+                        // Check if the value actually changed
+                        const currentValue = JSON.stringify(fm[key])
+                        const newValue = JSON.stringify(tableRows)
+                        if (currentValue !== newValue) {
+                            propertiesChanged = true
+                        }
+                        
+                        // Update the frontmatter property with the parsed table data
+                        fm[key] = tableRows
+                    } catch (error) {
+                        console.warn(`Failed to parse table for heading "${headingName}":`, error)
+                    }
+                }
+            }
+        })
+        
+        // If properties changed, trigger Dataview refresh
+        if (propertiesChanged) {
+            // Simple approach that works for blocks
+            setTimeout(() => {
+                try {
+                    // Use the Dataview API to force a refresh
+                    if (window.ct.dv && window.ct.dv.index) {
+                        if (typeof window.ct.dv.index.triggerRefresh === 'function') {
+                            window.ct.dv.index.triggerRefresh()
+                        }
+                    }
+                    
+                    // Force refresh of all open editors
+                    window.ct.plugin.app.workspace.iterateAllLeaves((leaf) => {
+                        if (leaf.view.getViewType() === "markdown") {
+                            const markdownView = leaf.view as any
+                            if (markdownView.editor) {
+                                markdownView.editor.refresh()
+                            }
+                        }
+                    })
+                } catch (error) {
+                    console.warn("Failed to trigger refresh:", error)
+                }
+            }, 100) // Reduced delay
         }
-    })
+        
+        // Restore editor focus and cursor position if this was the active file
+        if (isActiveFile && cursorPosition && activeEditor) {
+            // Use a small delay to ensure the editor has been refreshed
+            setTimeout(() => {
+                try {
+                    const currentActiveEditor = window.ct.plugin.app.workspace.activeEditor
+                    if (currentActiveEditor && currentActiveEditor.file?.path === file.path) {
+                        // Restore cursor position and focus
+                        currentActiveEditor.editor?.setCursor(cursorPosition!)
+                        currentActiveEditor.editor?.focus()
+                        
+                        // Alternative approach: trigger a refresh to ensure the editor is properly updated
+                        currentActiveEditor.editor?.refresh()
+                    }
+                } catch (error) {
+                    console.warn("Failed to restore editor focus:", error)
+                }
+            }, 50)
+        }
+    } finally {
+        // Always remove the flag, even if an error occurs
+        // window.ct.updatingProperties.delete(file.path)
+    }
 }
 
 export const UpdatePropertiesCommand = (plugin: CoolToolPlugin): Command => ({

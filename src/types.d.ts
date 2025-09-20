@@ -12,6 +12,8 @@ interface CoolToolInterface {
 	dv: DataviewApi
 	createProject: (projectID:string, importIt: boolean, parent: boolean) => any
     importPeople: () => any
+    // updatingProperties: Set<string>
+    getParsingBuffer: (path: string, afterInit?: (buf: any) => void) => any
 }
 
 type CoolToolSettings = {

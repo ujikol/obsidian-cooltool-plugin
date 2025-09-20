@@ -54,7 +54,7 @@ export class ParsingBuffer {
                     return this.ct.dv.array(this.parseTable(this.text.slice(this.sections[i].position.start.offset)))
                 }
             } else {
-				console.log("XXX6", this.sections[i].type, this.sections[i].position.start.offset, this.sections[i].position.end.offset,"\n", this.text.slice(this.sections[i].position.start.offset, this.sections[i].position.end.offset))
+				// console.log("XXX6", this.sections[i].type, this.sections[i].position.start.offset, this.sections[i].position.end.offset,"\n", this.text.slice(this.sections[i].position.start.offset, this.sections[i].position.end.offset))
 			}
         }
         return []
