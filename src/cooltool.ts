@@ -176,6 +176,16 @@ export class CoolTool implements CoolToolInterface {
 	markdown(table: any): string {
 		if ("array" in table)
 			table = this.asArray(table)
+		// Convert all cells of table to string and escape unescaped "|"
+		if (Array.isArray(table) && table.length > 1 && Array.isArray(table[1])) {
+			table[1] = table[1].map((row: any[]) =>
+				row.map((cell: any) => {
+					let str = cell !== undefined && cell !== null ? String(cell) : "";
+					str = str.replace(/(^|[^\\])\|/g, "$1\\|");
+					return str;
+				})
+			)
+		}
 		return getMarkdownTable({table: {head: table[0], body: table[1]}})
 	}
 
@@ -233,7 +243,6 @@ export class CoolTool implements CoolToolInterface {
                 foundTableProperty = true
             }
         }
-        
         // If no _table properties found, fall back to current behavior
         if (!foundTableProperty) {
             const parsingBuffer = this.getParsingBuffer(path)

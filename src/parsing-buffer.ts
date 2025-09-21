@@ -75,7 +75,7 @@ export class ParsingBuffer {
 			if (!row)
 				console.error("Error: No data in table row")
             const cells = (" " + row + " ").split(' | ')
-                .map(cell => cell.trim())
+                .map(cell => cell.trim().replace(/\\\|/g, "|"))
             if (cells.length === 0)
                 return null
             const rowObject: TableRow = new TableRow()
