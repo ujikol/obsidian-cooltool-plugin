@@ -20,7 +20,7 @@ export class ParsingBuffer {
 		this.plugin = plugin
 		this.ct = ct
         this.path = path
-		console.log("XXX ParsingBuffer created for", path)
+		// console.log("XXX ParsingBuffer created for", path)
     }
 
     async init() {

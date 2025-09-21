@@ -12,10 +12,9 @@ import { delay, intersection } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
 import { RetainAPI } from "./retain"
-import * as fs from 'fs'
-import { exec } from 'child_process';
-const path = require('path')
-const os = require('os')
+import { exec } from 'child_process'
+import * as path from 'path'
+import * as os from 'os'
 
 
 const CT_PROJECTS_ROOT = "CT_Projects"
