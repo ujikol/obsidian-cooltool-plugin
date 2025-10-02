@@ -224,7 +224,7 @@ export class CoolTool implements CoolToolInterface {
         
         // Check for _table properties first
         let all: DataArray<string> = this.dv.array([])
-        let foundTableProperty = false
+        // let foundTableProperty = false
         
         for (const h of heading) {
             const tablePropertyName = h + "_table"
@@ -240,17 +240,17 @@ export class CoolTool implements CoolToolInterface {
                     return tableRow
                 })
                 all = all.concat(this.dv.array(tableRows))
-                foundTableProperty = true
+                // foundTableProperty = true
             }
         }
-        // If no _table properties found, fall back to current behavior
-        if (!foundTableProperty) {
-            const parsingBuffer = this.getParsingBuffer(path)
-            all = parsingBuffer.getStakeholders(heading[0])
-            heading.slice(1).forEach((h: string) => {
-                all = all.concat(parsingBuffer.getStakeholders(h))
-            })
-        }
+        // // If no _table properties found, fall back to current behavior
+        // if (!foundTableProperty) {
+        //     const parsingBuffer = this.getParsingBuffer(path)
+        //     all = parsingBuffer.getStakeholders(heading[0])
+        //     heading.slice(1).forEach((h: string) => {
+        //         all = all.concat(parsingBuffer.getStakeholders(h))
+        //     })
+        // }
         
         const parent = page.Parent
         if (parent) {
