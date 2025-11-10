@@ -263,8 +263,22 @@ export class CoolTool implements CoolToolInterface {
         return all
 	}
 
-    cleanMatchcodes(mcs: string[]): string[] {
-        return mcs.map(m => {
+    clean(o:any|undefined): any {
+        return o ? o : ""
+    }
+
+    cleanLinks(link: (string|Link)|(string|Link)[]): string[] {
+        if (!Array.isArray(link))
+            link = [link]
+        console.log("XXX1 cleanLinks", link)
+        return link.map((m: string|Link) => {
+            if (typeof m === "object") {
+                const display = typeof m.display === 'string' && m.display.startsWith('@') ? m.display.slice(1) : m.display
+                if (display && display.length > 0)
+                    return display
+                else
+                    return m.path
+            }
             const match = m.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
             if (match)
                 return match[2]
@@ -294,12 +308,13 @@ export class CoolTool implements CoolToolInterface {
         try {
             const app = this.plugin.app
             const editor = app.workspace.activeEditor!.editor!
-            const text = editor.getValue()
+            // const text = editor.getValue()
             // const match = text.match(new RegExp("```\\s*meta-bind-button[\\s\\S\n]+?\\s+code:\\s*'ct.createNote\\(.+`" + escapeRegExp(noteName) + "`\\)[\\s\\S\n]*?'[\\s\\S\n]*?(```)", ""))
             // if (!match) {
             //     throw "Cannot find button. You probably changed the button code in an unexpected way."
             // }
             // const endOfbuttonPos = editor.offsetToPos(match.index! + match[0].length)
+            console.log("XXX1 createNote", template, noteName, args)
             const note = await this.createNoteFromTemplate(template, noteName, args)
             if (!note) {
                 throw "Note creation failed."
@@ -500,12 +515,14 @@ export class CoolTool implements CoolToolInterface {
 
 
     // Retain ===================================
-    async importRetain(context: any, projectID: string) {
+    async importRetain(context: any, projectID?: string) {
         const waitModal = new WaitModal(this.plugin.app)
         waitModal.open()
         try {
             if (!projectID)
                 projectID = this.property("Project_ID")
+            if (!projectID)
+                throw "Missing property for Project_ID"
             const insertLine = context.buttonContext.position.lineEnd + 1
             const configPath = path.join(os.homedir(), "retain.json")
             const api = new RetainAPI(configPath)
@@ -631,70 +648,91 @@ export class CoolTool implements CoolToolInterface {
 
     // Hard code various js elements
 
+    jiraDate(v: string|undefined) { 
+        if (!v || v === "" || v === undefined) return ""; 
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return "";
+        const day = d.getDate();
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        const year = d.getFullYear().toString().slice(2, 4);
+        return `${day}/${month}/${year}`; 
+    }
+
+    indent() {
+        return "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
+    }
+    
     // "[Project Folder](file:" + encodeURI(ct.property("Project_Folder")) + ")"
-    projectFolder() {
-        return "[Project Folder](file:" + encodeURI(this.property("Project_Folder")) + ")"
+    projectFolder(display: string = "Project Folder", subpath: string = "") {
+        return `[${display}](file:${encodeURI(this.property("Project_Folder") + subpath)})`
     }
 
     // "[Work Folder](file:" + encodeURI(ct.property("Project_Folder") + "/02_Work_in_progress/01_Workdata") + ")"
-    workFolder() {
-        return "[Work Folder](file:" + encodeURI(this.property("Project_Folder") + "/02_Work_in_progress/01_Workdata") + ")"
+    workFolder(display: string = "Work Folder") {
+        return this.projectFolder(display, "/02_Work_in_progress/01_Workdata")
     }
 
-    // "[here](file:" + encodeURI(ct.property("Project_Folder") + "/01_PM/01_Permission_to_Attack") + ")"
-    ptaFolder() {
-        return "[here](file:" + encodeURI(this.property("Project_Folder") + "/01_PM/01_Permission_to_Attack") + ")"
+    // "[PtA Folder](file:" + encodeURI(ct.property("Project_Folder") + "/01_PM/01_Permission_to_Attack") + ")"
+    ptaFolder(display: string = "PtA Folder") {
+        return this.projectFolder(display, "/01_PM/01_Permission_to_Attack")
     }
 
     // "[Final/Deliveryprotocol Folder](file:" + encodeURI(ct.property("Project_Folder") + "/03_Final_deliverables/03_Deliveryprotocol") + ")"
-    deliveryProtocolFolder() {
-        return "[Final/Deliveryprotocol Folder](file:" + encodeURI(this.property("Project_Folder") + "/03_Final_deliverables/03_Deliveryprotocol") + ")"
+    deliveryProtocolFolder(display: string = "Deliveryprotocol Folder") {
+        return this.projectFolder(display, "/03_Final_deliverables/03_Deliveryprotocol")
     }
 
     // "[Final/Final Folder](file:" + encodeURI(ct.property("Project_Folder") + "/03_Final_deliverables/01_Final_Report") + ")"
-    finalFolder() {
-        return "[Final/Final Folder](file:" + encodeURI(this.property("Project_Folder") + "/03_Final_deliverables/01_Final_Report") + ")"
+    finalFolder(display: string = "Final Report Folder") {
+        return this.projectFolder(display, "/03_Final_deliverables/01_Final_Report")
     }
 
     // "[Decryption Folder](file:" + encodeURI("S:/EMEA/Delivery/" + ct.property("Client")[0] + "/" + ct.property("Client") + "/decrypt") + ")"
-    decryptionFolder() {
-        return "[Decryption Folder](file:" + encodeURI("S:/EMEA/Delivery/" + this.property("Client")[0] + "/" + this.property("Client") + "/decrypt") + ")"
+    decryptionFolder(display: string = "Decryption Folder") {
+        return this.projectFolder(display, "/03_Final_deliverables/03_Deliveryprotocol")
+    }
+
+    // '<a href="' + encodeURI("https://nextcloud.sec-consult.com/index.php/apps/files/?dir=/" + ct.team().filter(m => m.hasRole(["PM"]))["Email"][0] + "/" + ct.property("Project_ID") + " " + ct.property("Project_Name")) + '">Nextcloud Folder</a>'
+    nextcloudFolder(display: string = "Nextcloud Folder") {
+        // return '<a href="' + encodeURI("https://nextcloud.sec-consult.com/index.php/apps/files/?dir=/" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Email"][0] + "/" + this.property("Project_ID") + " " + this.property("Project_Name")) + '">' + display + '</a>'
+        return `[${display}](${encodeURI("https://nextcloud.sec-consult.com/index.php/apps/files/?dir=/" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Email"][0] + "/" + this.property("Project_ID") + " " + this.property("Project_Name"))})`
     }
 
     // "[[Tasks Tracking " + ct.property("Project_ID") + "|Task Tracking]]"
-    taskTracker() {
-        return "[[Tasks Tracking " + this.property("Project_ID") + "|Task Tracking]]"
+    taskTracker(display: string = "Task Tracking") {
+        return `[[Tasks Tracking ${this.property("Project_ID")}|${display}]]`
     }
 
     // '<a href="' + encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + ct.property("Project_ID") + ' or summary~' + ct.property("Salesforce_ID") + ' or "Project Number"~' + ct.property("Project_ID") + ') ORDER BY updated DESC') + '">DyPla Ticket</a>'
-    dyplaTicket() {
-        return '<a href="' + encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC') + '">DyPla Ticket</a>'
+    dyplaTicket(display: string = "DyPla Ticket") {
+        // return `<a href="${encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC')}">${display}</a>`
+        return `[${display}](${encodeURI('https://secplanner.vie.sec-consult.com/issues/?jql=project = DYPLA AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC')})`
     }
 
     // "[QA Ticket](https:" + encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + ct.property("Project_ID") + ' or summary~' + ct.property("Salesforce_ID") + ' or "Project Number"~' + ct.property("Project_ID") + ') ORDER BY updated DESC') + ")"
-    qaTicket() {
-        return "[QA Ticket](https:" + encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC') + ")"
+    qaTicket(display: string = "QA Ticket") {
+        return `[${display}](https:${encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC')})`
     }
 
     // window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=15300&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&customfield_26500=" + ct.property("Salesforce_ID") + "&description="))
     createPresalesTicket() {
-        return window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
+        const url = "https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
         + "pid=15300&issuetype=10000&"
         + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
-        + "&customfield_10401=" + this.property("Project_ID")
+        + "&customfield_11704=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["AM"]))["M/C"]).join(", ")
         + "&priority=10100"
-        + "&reporter=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
         + "&duedate="
-        + "&customfield_10218="
-        + "&customfield_24503=" + this.property("Budget_PD")
-        + "&customfield_15122=11035"
-        + "&customfield_21100=13213"
-        + "&customfield_16802=" + this.property("Client")
-        + "&customfield_24600=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
-        + "&customfield_24502=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_11705=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&customfield_15112=" + this.property("Budget_PD")
+        + "&customfield_16802=" + this.cleanLinks(this.property("Client"))
+        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
+        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
         + "&customfield_24501=13200"
         + "&customfield_26500=" + this.property("Salesforce_ID")
-        + "&description="))
+        + "&customfield_15114=" + this.jiraDate(this.property("Execution_Start"))
+        + "&customfield_15115=" + this.jiraDate(this.property("Execution_End"))
+        + "&description=")
+        window.open(url)
     }
 
     // 'window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=12500&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_17623=" + ct.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&description="))'
@@ -704,16 +742,16 @@ export class CoolTool implements CoolToolInterface {
         + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
         + "&customfield_10401=" + this.property("Project_ID")
         + "&priority=10100"
-        + "&reporter=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&reporter=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
         + "&duedate="
         + "&customfield_10218="
         + "&customfield_24503=" + this.property("Budget_PD")
         + "&customfield_15122=11035"
         + "&customfield_21100=13213"
-        + "&customfield_16802=" + this.property("Client")
+        + "&customfield_16802=" + this.cleanLinks(this.property("Client"))
         + "&customfield_17623=" + this.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report"
-        + "&customfield_24600=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
-        + "&customfield_24502=" + this.cleanMatchcodes(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
+        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["M/C"]).join(", ")
         + "&customfield_24501=13200"
         + "&description="))
     }
@@ -724,8 +762,29 @@ export class CoolTool implements CoolToolInterface {
     }
 
     // window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + ct.team().filter(m => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + ct.property("Project_ID") + " Decrypt &for=" + ct.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\n\rWho: " + ct.team().filter(m => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
-    rfpMail() {
-        return window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + this.property("Project_ID") + " Decrypt &for=" + this.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + this.property("Client")[0] + "\\" + this.property("Client") + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + this.property("Client")[0] + "\\" + this.property("Client") + "\\\n\rWho: " + this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
+    decryptMail() {
+        return window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + this.property("Project_ID") + " Decrypt &for=" + this.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + this.cleanLinks(this.property("Client"))[0] + "\\" + this.cleanLinks(this.property("Client")) + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + this.cleanLinks(this.property("Client"))[0] + "\\" + this.cleanLinks(this.property("Client")) + "\\\n\rWho: " + this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
+    }
+
+    // window.open("mailto:" + encodeURI(ct.team().filter(m => !m.hasRole(["PM", "AM"]))["Email"].join("; ") + "?subject=" + ct.property("Project_ID") + " - &for=" + ct.property("Mailbox") + "&body=Hi team,\n\r\n\rBest Regards,\n" + ct.team().filter(m => m.hasRole(["PM"]))["Name"].map(n=>n.split(", ")[1]).join(", ")))
+    mailTeam(subject:string = "", body:string = "\n") {
+        console.log("XXX1 mailTeam", "mailto:" + encodeURI(this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM"]))["Email"].join("; ") + "?subject=" + this.property("Project_ID") + " - " + subject + "&for=" + this.property("Mailbox") + "&body=Hi team,\n\r" + body + "\n\rBest Regards,\n" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Name"].map((n: string) => n.split(", ")[1]).join(", ")))
+        return window.open("mailto:" + encodeURI(this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM"]))["Email"].join("; ") + "?subject=" + this.property("Project_ID") + " - " + subject + "&for=" + this.property("Mailbox") + "&body=Hi team,\n\r" + body + "\n\rBest Regards,\n" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Name"].map((n: string) => n.split(", ")[1]).join(", ")))
+    }
+
+    // window.open("mailto:" + encodeURI(ct.team().filter(m => !m.hasRole(["PM", "AM"]))["Email"].join("; ") + "; &subject=" + ct.property("Project_ID") + " New data in work folder&for=" + ct.property("Mailbox") + "&body=Hi team,\n\rI copied new files to " + ct.property("Project_Folder") + "\\02_Work_in_progress\\01_Workdata.\nPlease take a look at them.\n\rBest Regards,\n" + ct.team().filter(m => m.hasRole(["PM"]))["Name"].map(n=>n.split(", ")[1]).join(", ")))
+    mailTeamNewData() {
+        return this.mailTeam("New data in work folder", `I copied new files to ${this.property("Project_Folder")}\\02_Work_in_progress\\01_Workdata.\nPlease take a look at them.`)
+    }
+
+    // window.open("mailto:" + encodeURI(ct.stakeholders("Contacts")["Email"].join("; ") + "?subject=" + ct.property("Project_ID") + " - Delivery of the final project documentation&for=" + ct.property("Mailbox") + "&body=Hello " + ct.stakeholders("Contacts")["Name"].join(", ") + ",\n\rPlease find attached the final report.\n\rPlease confirm reception by simple mail reply.\n\rThank you,\n" + ct.team().filter(m => m.hasRole(["PM"]))["Name"].map(n=>n.split(", ")[1]).join(", ")))
+    mailFinalReport() {
+        return window.open("mailto:" + encodeURI(this.stakeholders("Contacts")["Email"].join("; ") + "?subject=" + this.property("Project_ID") + " - Delivery of the final project documentation&for=" + this.property("Mailbox") + "&body=Hello " + this.stakeholders("Contacts")["Name"].join(", ") + ",\n\rPlease find attached the final report.\n\rPlease confirm reception by simple mail reply.\n\rThank you,\n" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Name"].map((n: string) => n.split(", ")[1]).join(", ")))
+    }
+
+    // window.open("mailto:" + encodeURI("dl-sec-closemail@atos.net?subject=" + "Close Mail " + ct.property("Project_ID") + " - " + ct.property("Client") + " - " + ct.property("Project_Name") + " - " + " - Close Mail&for=" + ct.property("Mailbox") + "&body=Hi BOS,\n\rPlease close project.\n\rBest Regards,\n" + ct.team().filter(m => m.hasRole(["PM"]))["Name"].map(n=>n.split(", ")[1]).join(", ")))
+    mailCloseProject() {
+        return window.open("mailto:" + encodeURI("dl-sec-closemail@atos.net?subject=" + "Close Mail " + this.property("Project_ID") + " - " + this.cleanLinks(this.property("Client")) + " - " + this.property("Project_Name") + " - Close Mail&for=" + this.property("Mailbox") + "&body=Hi BOS,\n\rPlease close project.\n\rBest Regards,\n" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Name"].map((n: string) => n.split(", ")[1]).join(", ")))
     }
 
     // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Agenda ${ct.property("Project_ID")}`, {instructions:true, stage:"Agenda", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
@@ -760,7 +819,59 @@ export class CoolTool implements CoolToolInterface {
             `AM Briefing`,
             `AM-PM Briefing ${this.property("Project_ID")}`,
             {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)})
-    }   
+    }
+
+    // ct.createNote(context, "Team Briefing", `Team Briefing ${ct.property("Project_ID")}`)
+    createTeamBriefing(context: any) {
+        return this.createNote(context,
+            "Team Briefing",
+            `Team Briefing ${this.property("Project_ID")}`)
+    }
+
+    // ct.createNote(context, `Internal Debriefing`, `Internal Debriefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    createInternalDebriefing(context: any) {
+        return this.createNote(context,
+            `Internal Debriefing`,
+            `Internal Debriefing ${this.property("Project_ID")}`,
+            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    }
+
+    // ct.createNote(context, `Billing Mail`, `Billing Mail ${ct.property("Project_ID")}`)
+    createBillingMail(context: any) {
+        return this.createNote(context,
+            `Billing Mail`,
+            `Billing Mail ${this.property("Project_ID")}`)
+    }
+
+    // ct.createNote(context, `Clean-up Mail`, `Clean-up Mail ${ct.property("Project_ID")}`)
+    createCleanUpMail(context: any) {
+        return this.createNote(context,
+            `Clean-up Mail`,
+            `Clean-up Mail ${this.property("Project_ID")}`)
+    }
+
+    // ct.createNote(context, `MsTeams Team`, `MsT Team ${ct.property("Project_ID")}`)
+    createMsTeamsTeam(context: any) {
+        return this.createNote(context, `MsTeams Team`, `MsT Team ${this.property("Project_ID")}`)
+    }
+
+    getActuals(context: any) {
+        new Notice("Not yet implemented")
+    }
+
+    test() {
+        return this.button("Mail Team", 'console.log("mailto:" + encodeURI(ct.team().filter(m => !m.hasRole(["PM", "AM"]))["Email"].join("; ") + "?subject=" + ct.property("Project_ID") + " - &for=" + ct.property("Mailbox") + "&body=Hi team,\\n\\r\\n\\rBest Regards,\\n" + ct.team().filter(m => m.hasRole(["PM"]))["Name"].map(n=>n.split(", ")[1]).join(", ")))')
+    }
+
+    button(label: string, code: string) {
+        return "```" + `meta-bind-button
+style: primary
+label: ${label}
+actions:
+  - type: inlineJS
+    code: '${code}'
+` + "```"
+    }
 
 }
 

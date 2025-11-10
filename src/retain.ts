@@ -209,7 +209,7 @@ export class RetainAPI {
         for (let i=0; i<rs.length; i++)
             totals.push(sum(shiftsPivot.map(r => r[i])))
         shiftsPivot.push(totals)
-        shiftsPivot = shiftsPivot.map(w => [].concat.apply([], [[], w, [sum(w)]]))
+        // shiftsPivot = shiftsPivot.map(w => [].concat.apply([], [[], w, [sum(w)]]))
         wks.push(-1)
         const shiftOutput = getMarkdownTable({table: {
             head: [].concat.apply([], [["Week", "Date"], resources.map(r => r.RES_USRLOGON || ""), ["Total"]]),
@@ -217,7 +217,7 @@ export class RetainAPI {
                 // @ts-ignore - strange build error TS2693
                 const week = DateTime.fromMillis(x[0])
                 return [].concat.apply([],
-                [x[0] === -1 ? ["Total", ""] : [week.toISOWeekDate()!.substring(2,9), week.toFormat('YYYY-MM-DD')],
+                [x[0] === -1 ? ["Total", ""] : [week.toISOWeekDate()!.substring(2,8), week.toFormat('yyyy-MM-dd')],
                 x[1].map(n => n.toString()), [sum(x[1]).toString()]])})
         }})
 
