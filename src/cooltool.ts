@@ -271,18 +271,22 @@ export class CoolTool implements CoolToolInterface {
         if (!Array.isArray(link))
             link = [link]
         console.log("XXX1 cleanLinks", link)
-        return link.map((m: string|Link) => {
-            if (typeof m === "object") {
-                const display = typeof m.display === 'string' && m.display.startsWith('@') ? m.display.slice(1) : m.display
+        return link.map((l: string|Link) => {
+            if (typeof l === "object") {
+                const display = typeof l.display === 'string' && l.display.startsWith('@') ? l.display.slice(1) : l.display
+                console.log("XXX2 cleanLinks", display, "|", l.path, l.fileName())
                 if (display && display.length > 0)
                     return display
                 else
-                    return m.path
+                    if (l.path.endsWith(".md"))
+                        return l.path.substring(0, l.path.length - 3)
+                    else
+                        return l.path
             }
-            const match = m.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
+            const match = l.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
             if (match)
                 return match[2]
-            return m
+            return l
         })
     }
 
