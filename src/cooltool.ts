@@ -270,7 +270,6 @@ export class CoolTool implements CoolToolInterface {
     cleanLinks(link: (string|Link)|(string|Link)[]): string[] {
         if (!Array.isArray(link))
             link = [link]
-        console.log("XXX1 cleanLinks", link)
         return link.map((l: string|Link) => {
             if (typeof l === "object") {
                 const display = typeof l.display === 'string' && l.display.startsWith('@') ? l.display.slice(1) : l.display
@@ -288,6 +287,10 @@ export class CoolTool implements CoolToolInterface {
                 return match[2]
             return l
         })
+    }
+    // deprecated (for compatibility with older proejct files)
+    cleanMatchcodes(mcs: string[]): string[] {
+        return this.cleanLinks(mcs)
     }
 
     callout(text: string, type: string="", title: string = ""): string {
