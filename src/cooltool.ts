@@ -273,14 +273,13 @@ export class CoolTool implements CoolToolInterface {
         return link.map((l: string|Link) => {
             if (typeof l === "object") {
                 const display = typeof l.display === 'string' && l.display.startsWith('@') ? l.display.slice(1) : l.display
-                console.log("XXX2 cleanLinks", display, "|", l.path, l.fileName())
                 if (display && display.length > 0)
                     return display
                 else
                     if (l.path.endsWith(".md"))
-                        return l.path.substring(0, l.path.length - 3)
+                        return l.fileName().substring(0, l.fileName().length - 3)
                     else
-                        return l.path
+                        return l.fileName()
             }
             const match = l.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
             if (match)
@@ -321,7 +320,7 @@ export class CoolTool implements CoolToolInterface {
             //     throw "Cannot find button. You probably changed the button code in an unexpected way."
             // }
             // const endOfbuttonPos = editor.offsetToPos(match.index! + match[0].length)
-            console.log("XXX1 createNote", template, noteName, args)
+            // console.log("XXX1 createNote", template, noteName, args)
             const note = await this.createNoteFromTemplate(template, noteName, args)
             if (!note) {
                 throw "Note creation failed."
