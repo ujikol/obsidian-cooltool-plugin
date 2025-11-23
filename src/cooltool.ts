@@ -276,10 +276,7 @@ export class CoolTool implements CoolToolInterface {
                 if (display && display.length > 0)
                     return display
                 else
-                    if (l.path.endsWith(".md"))
-                        return l.fileName().substring(0, l.fileName().length - 3)
-                    else
-                        return l.fileName()
+                    return l.fileName()
             }
             const match = l.match(/^\[\[([^\]@]+\|)?@(.+)\]\]/)
             if (match)
