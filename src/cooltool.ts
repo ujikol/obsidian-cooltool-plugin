@@ -1066,7 +1066,7 @@ async function actuallyUpdateProperties(file: TFile) {
                     const currentActiveEditor = window.ct.plugin.app.workspace.activeEditor
                     if (currentActiveEditor && currentActiveEditor.file?.path === file.path) {
                         // Restore cursor position and focus
-                        currentActiveEditor.editor?.setCursor(cursorPosition!)
+                        // currentActiveEditor.editor?.setCursor(cursorPosition!)
                         currentActiveEditor.editor?.focus()
                         
                         // Alternative approach: trigger a refresh to ensure the editor is properly updated
