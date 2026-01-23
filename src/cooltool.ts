@@ -1059,7 +1059,7 @@ async function actuallyUpdateProperties(file: TFile) {
         }
         
         // Restore editor focus and cursor position if this was the active file
-        if (isActiveFile && cursorPosition && activeEditor) {
+        if (isActiveFile && cursorPosition && activeEditor && !await isEditingProperties(this.app.workspace.getActiveViewOfType(MarkdownView)!)) {
             // Use a small delay to ensure the editor has been refreshed
             setTimeout(() => {
                 try {
@@ -1081,6 +1081,25 @@ async function actuallyUpdateProperties(file: TFile) {
         // Always remove the flag, even if an error occurs
         // window.ct.updatingProperties.delete(file.path)
     }
+}
+
+async function isEditingProperties(view: MarkdownView): Promise<boolean> {
+    // Check for Visual Properties UI Focus
+    // Check if the currently focused DOM element is inside the metadata container
+    const activeDoc = view.containerEl.ownerDocument; // Support pop-out windows
+    const activeElement = activeDoc.activeElement;
+
+    if (activeElement) {
+        // The class 'metadata-container' wraps the Properties UI
+        if (activeElement.closest('.metadata-container')) {
+            return true;
+        }
+        // Edge case: The "Add property" button or similar UI elements
+        if (activeElement.closest('.metadata-add-button')) {
+            return true;
+        }
+    }
+    return false;
 }
 
 export const UpdatePropertiesCommand = (plugin: CoolToolPlugin): Command => ({

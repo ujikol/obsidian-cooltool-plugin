@@ -1,5 +1,5 @@
 // import { ChildProcess } from 'child_process';
-import { Plugin, TFile, EventRef, MarkdownView, Editor, Command } from 'obsidian'
+import { Plugin, TFile, EventRef, MarkdownView, Editor } from 'obsidian'
 import { CoolTool, CreateProjectCommand, ImportPeopleCommand, UpdateCommand, UpdatePropertiesCommand, updateProperties } from 'src/cooltool'
 import { CoolToolSettings } from 'src/types'
 import { CoolToolSettingTab } from 'src/settings'
@@ -116,4 +116,5 @@ export default class CoolToolPlugin extends Plugin {
             return
         await updateProperties(this.app.workspace.getActiveFile()!, 7000)
     }
+
 }
