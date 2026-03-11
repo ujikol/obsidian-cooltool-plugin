@@ -816,6 +816,18 @@ export class CoolTool implements CoolToolInterface {
             })
     }
 
+    createScopingMinutes(context: any) {
+        return this.createNote(context,
+            `Pentest Profile ${this.property("Language")}`,
+            `Scoping Minutes ${this.property("Project_ID")}`,
+            {
+                instructions:true,
+                stage:"Scoping",
+                stakeholdersFilter:(m: any) => true,
+                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+            })
+    }
+
     // ct.createNote(context, `AM Briefing`, `AM-PM Briefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
     createAMBriefing(context: any) {
         return this.createNote(context,
