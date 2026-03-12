@@ -65,34 +65,62 @@ a.tag {
 :not(.callout-content) > h6 {
   position: relative;
 } */
-h1, .HyperMD-header-1 {
-    left: -6rem;
-  }
-  h2, .HyperMD-header-2 {
-    left: -5rem;
-  }
-  h3, .HyperMD-header-3 {
-    left: -4rem;
-  }
-  h4, .HyperMD-header-4 {
-    left: -3rem;
-  }
-  h5, .HyperMD-header-5 {
-    left: -2rem;
-  }
-  h6, .HyperMD-header-6 {
-    left: -1rem;
-  }
-  div.markdown-preview-view,
-  div.markdown-source-view div.cm-content { /* This is used to center note considering shifted titles */
+
+/* 1. Create the 8rem gutter and enforce 2rem right padding for BOTH views */
+div.markdown-source-view div.cm-content,
+div.markdown-preview-sizer { 
     padding-left: 8rem !important;
-    padding-right: 2rem !important;
-  }
-  div.markdown-preview-view,
-  div.markdown-source-view div.cm-content div.cm-lineWrapping { /* Prevent indentation when editing table cells */
+    padding-right: 2rem !important; /* Explicitly forces the right margin/padding */
+}
+
+/* 2. Prevent indentation when editing table cells */
+div.markdown-source-view div.cm-content div.cm-lineWrapping { 
     padding-left: 0rem !important;
     padding-right: 0rem !important;
-  }
+}
+
+/* 3. Enable positioning for Reading View headings so 'left' works */
+.markdown-preview-sizer h1,
+.markdown-preview-sizer h2,
+.markdown-preview-sizer h3,
+.markdown-preview-sizer h4,
+.markdown-preview-sizer h5,
+.markdown-preview-sizer h6 {
+    position: relative;
+}
+
+/* 4. Pull headings back into the 6rem gutter */
+h1, .HyperMD-header-1 { left: -6rem; }
+h2, .HyperMD-header-2 { left: -5rem; }
+h3, .HyperMD-header-3 { left: -4rem; }
+h4, .HyperMD-header-4 { left: -3rem; }
+h5, .HyperMD-header-5 { left: -2rem; }
+h6, .HyperMD-header-6 { left: -1rem; }
+
+/* 5. Prevent headings inside callouts from flying left out of their boxes */
+.callout-content h1,
+.callout-content h2,
+.callout-content h3,
+.callout-content h4,
+.callout-content h5,
+.callout-content h6 {
+    left: 0 !important;
+}
+
+/* Title & Properties Alignment =================================================================== */
+
+/* Reading View: Pull title/properties left to match the h1 (-6rem) */
+.markdown-preview-sizer .inline-title,
+.markdown-preview-sizer .metadata-container {
+    position: relative;
+    left: -6rem;
+}
+
+/* Editing View: Reset to 0 since h1 (6rem padding - 6rem left pull) now naturally sits at 0 */
+.markdown-source-view .inline-title,
+.markdown-source-view .metadata-container {
+    margin-left: 0rem !important;
+}
   
 
 /* Tasks ========================================================================================== */
