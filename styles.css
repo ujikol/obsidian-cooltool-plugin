@@ -7,34 +7,11 @@ span.cm-comment {
 
 
 /* Button ========================================================================================= */
+
 div.mb-button {
     margin-left: 2em !important;
 }
 
-
-/* Tags =========================================================================================== */
-
-/* set colour variables (makes it easy to reuse colours)
-/*sets colour for #{tag} in reading mode */
-/* .tag[href="#{tag}"]{
-color: red !important;
-background-color: green !important;
-} */
-/* sets colour for #{tag} and any subtags in reading mode */
-/* .tag[href^="#{tag}/"]{
-color: red !important;
-background-color: green !important;
-} */
-/* sets colour for for #{tag} in editor */
-/* span.cm-hashtag[class$="cm-tag-{tag}"] {
-color: red !important;
-background-color: green !important;
-} */
-/* sets colour for #{tag} and any subtags in the editor */
-/* span.cm-hashtag[class*="cm-tag-{tag}"] {
-color: red !important;
-background-color: green !important;
-} */
 .cm-hashtag {
     padding-top: 0em;
     padding-bottom: 0.1em;
