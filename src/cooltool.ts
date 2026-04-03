@@ -717,19 +717,19 @@ export class CoolTool implements CoolToolInterface {
         return `[${display}](https:${encodeURI('secplanner.vie.sec-consult.com/issues/?jql=project = QAD AND (summary~' + this.property("Project_ID") + ' or summary~' + this.property("Salesforce_ID") + ' or "Project Number"~' + this.property("Project_ID") + ') ORDER BY updated DESC')})`
     }
 
-    // window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=15300&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&customfield_26500=" + ct.property("Salesforce_ID") + "&description="))
+    // window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=15300&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["MC"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["MC"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["MC"]).join(", ") + "&customfield_24501=13200&customfield_26500=" + ct.property("Salesforce_ID") + "&description="))
     createPresalesTicket() {
         const url = "https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
         + "pid=15300&issuetype=10000&"
         + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
-        + "&customfield_11704=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["AM"]))["M/C"]).join(", ")
+        + "&customfield_11704=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["AM"]))["MC"]).join(", ")
         + "&priority=10100"
         + "&duedate="
-        + "&customfield_11705=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&customfield_11705=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["MC"]).join(", ")
         + "&customfield_15112=" + this.property("Budget_PD")
         + "&customfield_16802=" + this.cleanLinks(this.property("Client"))
-        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
-        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["MC"]).join(", ")
+        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["AM", "QA"]))["MC"]).join(", ")
         + "&customfield_24501=13200"
         + "&customfield_26500=" + this.property("Salesforce_ID")
         + "&customfield_15114=" + this.jiraDate(this.property("Execution_Start"))
@@ -738,14 +738,14 @@ export class CoolTool implements CoolToolInterface {
         window.open(url)
     }
 
-    // 'window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=12500&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["M/C"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_17623=" + ct.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["M/C"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["M/C"]).join(", ") + "&customfield_24501=13200&description="))'
+    // 'window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?pid=12500&issuetype=10000&summary=" + ct.property("Project_ID") + " - " + ct.property("Project_Name") + "&customfield_10401=" + ct.property("Project_ID") + "&priority=10100&reporter=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["PM"]))["MC"]).join(", ") + "&duedate=&customfield_10218=&customfield_24503=" + ct.property("Budget_PD") + "&customfield_15122=11035&customfield_21100=13213&customfield_16802=" + ct.property("Client") + "&customfield_17623=" + ct.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report&customfield_24600=" + ct.cleanMatchcodes(ct.team().filter(m => m.hasRole(["ED"]))["MC"]).join(", ") + "&customfield_24502=" + ct.cleanMatchcodes(ct.team().filter(m => !m.hasRole(["AM", "QA"]))["MC"]).join(", ") + "&customfield_24501=13200&description="))'
     createQaTicket() {
         return window.open("https://" + encodeURI("secplanner.vie.sec-consult.com/secure/CreateIssueDetails!init.jspa?"
         + "pid=12500&issuetype=10000&"
         + "summary=" + this.property("Project_ID") + " - " + this.property("Project_Name")
         + "&customfield_10401=" + this.property("Project_ID")
         + "&priority=10100"
-        + "&reporter=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["M/C"]).join(", ")
+        + "&reporter=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["PM"]))["MC"]).join(", ")
         + "&duedate="
         + "&customfield_10218="
         + "&customfield_24503=" + this.property("Budget_PD")
@@ -753,15 +753,15 @@ export class CoolTool implements CoolToolInterface {
         + "&customfield_21100=13213"
         + "&customfield_16802=" + this.cleanLinks(this.property("Client"))
         + "&customfield_17623=" + this.property("Project_Folder") + "\\02_Work_in_progress\\02_Final_Report"
-        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["M/C"]).join(", ")
-        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["M/C"]).join(", ")
+        + "&customfield_24600=" + this.cleanLinks(this.team().filter((m: TableRow) => m.hasRole(["ED"]))["MC"]).join(", ")
+        + "&customfield_24502=" + this.cleanLinks(this.team().filter((m: TableRow) => !m.hasRole(["PM", "AM", "QA"]))["MC"]).join(", ")
         + "&customfield_24501=13200"
         + "&description="))
     }
 
-    // window.open("https://" + encodeURI("dypla.vie.sec-consult.com/connector/request/" + ct.property("Project_ID")))
+    // window.open("https://" + encodeURI("dypla.vie.sec-consult.coMConnector/request/" + ct.property("Project_ID")))
     updatePermissions() {
-        return window.open("https://" + encodeURI("dypla.vie.sec-consult.com/connector/request/" + this.property("Project_ID")))
+        return window.open("https://" + encodeURI("dypla.vie.sec-consult.coMConnector/request/" + this.property("Project_ID")))
     }
 
     // window.open("mailto:" + encodeURI("rfp@service.sec-consult.com?cc=" + ct.team().filter(m => !m.hasRole(["PM", "AM", "QA"]))["Email"].join("; ") + "; &subject=RFP " + ct.property("Project_ID") + " Decrypt &for=" + ct.property("Mailbox") + "&body=What:\nS:\\EMEA\\Delivery_Finished\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\nS:\\EMEA\\Delivery_Finished_Auto\\" + ct.property("Client")[0] + "\\" + ct.property("Client") + "\\\n\rWho: " + ct.team().filter(m => !m.hasRole(["AM", "QA"]))["Name"].join(", ") + "\nPermission: r\nReason: Report needed\nUntil: today + 3 months\n\r@Support: Please add permission(s)"))
@@ -790,7 +790,7 @@ export class CoolTool implements CoolToolInterface {
         return window.open("mailto:" + encodeURI("dl-sec-closemail@atos.net?subject=" + "Close Mail " + this.property("Project_ID") + " - " + this.cleanLinks(this.property("Client")) + " - " + this.property("Project_Name") + " - Close Mail&for=" + this.property("Mailbox") + "&body=Hi BOS,\n\rPlease close project.\n\rBest Regards,\n" + this.team().filter((m: TableRow) => m.hasRole(["PM"]))["Name"].map((n: string) => n.split(", ")[1]).join(", ")))
     }
 
-    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Agenda ${ct.property("Project_ID")}`, {instructions:true, stage:"Agenda", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Agenda ${ct.property("Project_ID")}`, {instructions:true, stage:"Agenda", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["MC", "Name", "Role", "Email"].includes(c)})
     createKickoffAgenda(context: any) {
         return this.createNote(context,
             `Pentest Profile ${this.property("Language")}`,
@@ -799,11 +799,11 @@ export class CoolTool implements CoolToolInterface {
                 instructions:true,
                 stage:"Agenda",
                 stakeholdersFilter:(m: any) => true,
-                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+                stakeholdersColumnsFilter: (c: any) => ["MC", "Name", "Role", "Email"].includes(c)
             })
     }
 
-    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Minutes ${ct.property("Project_ID")}`, {instructions:true, stage:"Kickoff", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    // ct.createNote(context, `Pentest Profile ${ct.property("Language")}`, `Kickoff Minutes ${ct.property("Project_ID")}`, {instructions:true, stage:"Kickoff", stakeholdersFilter:(m) => true, stakeholdersColumnsFilter: (c) => ["MC", "Name", "Role", "Email"].includes(c)})
     createKickoffMinutes(context: any) {
         return this.createNote(context,
             `Pentest Profile ${this.property("Language")}`,
@@ -812,7 +812,7 @@ export class CoolTool implements CoolToolInterface {
                 instructions:true,
                 stage:"Kickoff",
                 stakeholdersFilter:(m: any) => true,
-                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+                stakeholdersColumnsFilter: (c: any) => ["MC", "Name", "Role", "Email"].includes(c)
             })
     }
 
@@ -824,16 +824,16 @@ export class CoolTool implements CoolToolInterface {
                 instructions:true,
                 stage:"Scoping",
                 stakeholdersFilter:(m: any) => true,
-                stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)
+                stakeholdersColumnsFilter: (c: any) => ["MC", "Name", "Role", "Email"].includes(c)
             })
     }
 
-    // ct.createNote(context, `AM Briefing`, `AM-PM Briefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    // ct.createNote(context, `AM Briefing`, `AM-PM Briefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c) => ["MC", "Name", "Role", "Email"].includes(c)})
     createAMBriefing(context: any) {
         return this.createNote(context,
             `AM Briefing`,
             `AM-PM Briefing ${this.property("Project_ID")}`,
-            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)})
+            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM"]), stakeholdersColumnsFilter: (c: any) => ["MC", "Name", "Role", "Email"].includes(c)})
     }
 
     // ct.createNote(context, "Team Briefing", `Team Briefing ${ct.property("Project_ID")}`)
@@ -843,12 +843,12 @@ export class CoolTool implements CoolToolInterface {
             `Team Briefing ${this.property("Project_ID")}`)
     }
 
-    // ct.createNote(context, `Internal Debriefing`, `Internal Debriefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c) => ["M/C", "Name", "Role", "Email"].includes(c)})
+    // ct.createNote(context, `Internal Debriefing`, `Internal Debriefing ${ct.property("Project_ID")}`, {stakeholdersFilter:m => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c) => ["MC", "Name", "Role", "Email"].includes(c)})
     createInternalDebriefing(context: any) {
         return this.createNote(context,
             `Internal Debriefing`,
             `Internal Debriefing ${this.property("Project_ID")}`,
-            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c: any) => ["M/C", "Name", "Role", "Email"].includes(c)})
+            {stakeholdersFilter: (m: TableRow) => m.hasRole(["PM", "AM", "ED", "SL"]), stakeholdersColumnsFilter: (c: any) => ["MC", "Name", "Role", "Email"].includes(c)})
     }
 
     // ct.createNote(context, `Billing Mail`, `Billing Mail ${ct.property("Project_ID")}`)
