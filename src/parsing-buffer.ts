@@ -57,7 +57,7 @@ export class ParsingBuffer {
 				// console.log("XXX6", this.sections[i].type, this.sections[i].position.start.offset, this.sections[i].position.end.offset,"\n", this.text.slice(this.sections[i].position.start.offset, this.sections[i].position.end.offset))
 			}
         }
-        return []
+        return this.ct.dv.array([])
     }
 
     parseTable(markdown: string): TableRow[] {
