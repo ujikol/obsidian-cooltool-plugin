@@ -1,5 +1,5 @@
 // import * as obsidian from 'obsidian'
-import { DataviewApi } from 'obsidian-dataview'
+import type { DataviewApi } from 'obsidian-dataview'
 import {Command} from 'obsidian'
 import {EditorView} from '@codemirror/view'
 // import { DataArray } from 'obsidian-dataview/lib/api/data-array'

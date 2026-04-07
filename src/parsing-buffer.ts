@@ -2,7 +2,7 @@ import { CoolToolPlugin, MsTeamsTeam, MsTeamsOptions, MsTeamsChannel } from "../
 import { TableRow } from "../src/dataview"
 import { replaceAsync } from "../src/util"
 import { Notice, HeadingCache, SectionCache } from 'obsidian'
-import { DataArray } from "obsidian-dataview"
+import type { DataArray } from "obsidian-dataview"
 import { delay } from 'es-toolkit'
 import { CoolTool } from "./cooltool"
 // import { Md5 } from "ts-md5"

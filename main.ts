@@ -15,6 +15,7 @@ export default class CoolToolPlugin extends Plugin {
 
 	async onload() {
 		window.ct = new CoolTool(this)
+        await window.ct.getDataview()
         this.isEnabled = true
         await this.loadSettings()
 		this.addSettingTab(new CoolToolSettingTab(this.app, this))

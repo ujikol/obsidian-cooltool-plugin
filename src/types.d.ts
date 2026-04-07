@@ -1,5 +1,5 @@
 import { Plugin, TFile, TFolder } from 'obsidian'
-import { DataviewApi } from "obsidian-dataview"
+import type { DataviewApi } from "obsidian-dataview"
 
 interface CoolToolPlugin extends Plugin {
     settings: CoolToolSettings
@@ -10,6 +10,7 @@ interface CoolToolPlugin extends Plugin {
 interface CoolToolInterface {
     plugin: Plugin
 	dv: DataviewApi
+	getDataview: (trynumber?: number) => Promise<void>
 	createProject: (projectID:string, importIt: boolean, parent: boolean) => any
     importPeople: () => any
     // updatingProperties: Set<string>

@@ -7,7 +7,8 @@ import { renderBranch} from "../src/render"
 import { executePowerShellCommand, pssavpar} from "../src/powershell"
 import { monthlyRevenuesTable, monthlyRevenuesChart } from "../src/reporting"
 import { App, Command, Modal, Setting , Notice, Editor, MarkdownView, MarkdownFileInfo, TFile, FrontMatterCache} from 'obsidian'
-import { getAPI, DataviewApi, Link, DataArray, PageMetadata } from "obsidian-dataview"
+import type { DataviewApi, Link, DataArray, PageMetadata } from "obsidian-dataview"
+import { getDataviewApi } from "./dataview-api"
 import { delay, intersection } from "es-toolkit"
 import { getMarkdownTable } from "markdown-table-ts"
 import { parseDate } from "chrono-node"
@@ -24,7 +25,7 @@ const eachActorsRegex =  /^\s*((@(\w+))|(\[\[(CT_People\/Retain\/)?(([^\]]+)(\.m
 
 export class CoolTool implements CoolToolInterface {
 	plugin: CoolToolPlugin
-	dv: DataviewApi
+	dv!: DataviewApi
 	tp: TemplaterPlugin
 	templateArgs: { [key: string]: any }
 	templatesFolder = "CT_Templates"
@@ -33,7 +34,6 @@ export class CoolTool implements CoolToolInterface {
 
 	constructor(plugin: CoolToolPlugin) {
 		this.plugin = plugin
-		this.getDataview()
         this.parsingBuffers = {}
         this.plugin.app.workspace.on('editor-change', (editor: Editor, info: MarkdownView | MarkdownFileInfo) => {
             const path = info.file!.path
@@ -121,8 +121,8 @@ export class CoolTool implements CoolToolInterface {
     }
 
     // DataView =================================
-	async getDataview(trynumber:number=1) {
-		const dv = getAPI(this.plugin.app)
+	async getDataview(trynumber: number = 1): Promise<void> {
+		const dv = getDataviewApi(this.plugin.app)
 		if (dv) {
 			if (!this.plugin.app.plugins.enabledPlugins.has('dataview'))
 				throw ("Error: Dataview plugin not activated.")
@@ -131,8 +131,8 @@ export class CoolTool implements CoolToolInterface {
 		}
 		if (trynumber >= 10)
 			throw ("Error: Dataview plugin needed for CoolTool.")
-		await new Promise(f => setTimeout(f, 500*2^trynumber))
-		this.getDataview(++trynumber)
+		await new Promise(f => setTimeout(f, 500 * Math.pow(2, trynumber)))
+		return await this.getDataview(++trynumber)
 	}
 
 	headers(table: DataArray<any>): string[] {

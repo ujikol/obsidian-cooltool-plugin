@@ -1,5 +1,5 @@
 import { Notice } from 'obsidian'
-import { PageMetadata } from "obsidian-dataview"
+import type { PageMetadata } from "obsidian-dataview"
 import { getMarkdownTable, Align } from "markdown-table-ts"
 import { Chart, registerables } from 'chart.js'
 const path = require('path')
